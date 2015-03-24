@@ -16,6 +16,8 @@
 package org.terracotta.offheapstore.concurrent;
 
 import org.terracotta.offheapstore.ReadWriteLockedOffHeapHashMap;
+import org.terracotta.offheapstore.data.IntData;
+import org.terracotta.offheapstore.data.Source;
 import org.terracotta.offheapstore.paging.PageSource;
 import org.terracotta.offheapstore.storage.StorageEngine;
 import org.terracotta.offheapstore.util.Factory;
@@ -41,15 +43,15 @@ public class ConcurrentOffHeapHashMap<K, V> extends AbstractConcurrentOffHeapMap
    * @param tableSource buffer source from which hash tables are allocated
    * @param storageEngineFactory factory for the segment storage engines
    */
-  public ConcurrentOffHeapHashMap(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
+  public ConcurrentOffHeapHashMap(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
     super(new ReadWriteLockedOffHeapHashMapFactory<K, V>(tableSource, storageEngineFactory));
   }
 
-  public ConcurrentOffHeapHashMap(PageSource tableSource, boolean tableAllocationsSteal, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
+  public ConcurrentOffHeapHashMap(Source<IntData> tableSource, boolean tableAllocationsSteal, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
     super(new ReadWriteLockedOffHeapHashMapFactory<K, V>(tableSource, tableAllocationsSteal, storageEngineFactory));
   }
 
-  public ConcurrentOffHeapHashMap(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, boolean latencyMonitoring) {
+  public ConcurrentOffHeapHashMap(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, boolean latencyMonitoring) {
     super(new ReadWriteLockedOffHeapHashMapFactory<K, V>(tableSource, storageEngineFactory));
   }
 
@@ -62,12 +64,12 @@ public class ConcurrentOffHeapHashMap<K, V> extends AbstractConcurrentOffHeapMap
    * @param tableSize initial table size (summed across all segments)
    * @param concurrency number of segments
    */
-  public ConcurrentOffHeapHashMap(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, long tableSize,
+  public ConcurrentOffHeapHashMap(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, long tableSize,
       int concurrency) {
     super(new ReadWriteLockedOffHeapHashMapFactory<K, V>(tableSource, storageEngineFactory, (int) (tableSize / concurrency)), concurrency);
   }
 
-  public ConcurrentOffHeapHashMap(PageSource tableSource, boolean tableAllocationsSteal, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, long tableSize,
+  public ConcurrentOffHeapHashMap(Source<IntData> tableSource, boolean tableAllocationsSteal, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, long tableSize,
       int concurrency) {
     super(new ReadWriteLockedOffHeapHashMapFactory<K, V>(tableSource, tableAllocationsSteal, storageEngineFactory, (int) (tableSize / concurrency)), concurrency);
   }

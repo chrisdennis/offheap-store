@@ -16,7 +16,8 @@
 package org.terracotta.offheapstore.concurrent;
 
 import org.terracotta.offheapstore.WriteLockedOffHeapHashMap;
-import org.terracotta.offheapstore.paging.PageSource;
+import org.terracotta.offheapstore.data.IntData;
+import org.terracotta.offheapstore.data.Source;
 import org.terracotta.offheapstore.storage.StorageEngine;
 import org.terracotta.offheapstore.util.Factory;
 
@@ -33,7 +34,7 @@ public class WriteLockedOffHeapHashMapFactory<K, V> implements Factory<WriteLock
   private static final int DEFAULT_TABLE_SIZE = 128;
 
   private final Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory;
-  private final PageSource tableSource;
+  private final Source<IntData> tableSource;
   private final int tableSize;
   
   /**
@@ -43,7 +44,7 @@ public class WriteLockedOffHeapHashMapFactory<K, V> implements Factory<WriteLock
    * @param tableSource buffer source from which the segment hash tables are allocated
    * @param storageEngineFactory factory for the segment storage engines
    */
-  public WriteLockedOffHeapHashMapFactory(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
+  public WriteLockedOffHeapHashMapFactory(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
     this(tableSource, storageEngineFactory, DEFAULT_TABLE_SIZE);
   }
 
@@ -55,7 +56,7 @@ public class WriteLockedOffHeapHashMapFactory<K, V> implements Factory<WriteLock
    * @param storageEngineFactory factory for the segment storage engines
    * @param tableSize initial table size for each segment
    */
-  public WriteLockedOffHeapHashMapFactory(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, int tableSize) {
+  public WriteLockedOffHeapHashMapFactory(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, int tableSize) {
     this.storageEngineFactory = storageEngineFactory;
     this.tableSource = tableSource;
     this.tableSize = tableSize;

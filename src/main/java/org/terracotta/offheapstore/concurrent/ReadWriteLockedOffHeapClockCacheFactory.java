@@ -16,9 +16,10 @@
 package org.terracotta.offheapstore.concurrent;
 
 import org.terracotta.offheapstore.ReadWriteLockedOffHeapClockCache;
+import org.terracotta.offheapstore.data.IntData;
+import org.terracotta.offheapstore.data.Source;
 import org.terracotta.offheapstore.eviction.EvictionListener;
 import org.terracotta.offheapstore.eviction.EvictionListeningReadWriteLockedOffHeapClockCache;
-import org.terracotta.offheapstore.paging.PageSource;
 import org.terracotta.offheapstore.storage.StorageEngine;
 import org.terracotta.offheapstore.util.Factory;
 
@@ -35,7 +36,7 @@ public class ReadWriteLockedOffHeapClockCacheFactory<K, V> implements Factory<Re
   private static final int DEFAULT_TABLE_SIZE = 128;
 
   private final Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory;
-  private final PageSource tableSource;
+  private final Source<IntData> tableSource;
   private final int tableSize;
 
   private final EvictionListener<K, V> evictionListener;
@@ -47,7 +48,7 @@ public class ReadWriteLockedOffHeapClockCacheFactory<K, V> implements Factory<Re
    * @param tableSource buffer source from which the segment hash tables are allocated
    * @param storageEngineFactory factory for the segment storage engines
    */
-  public ReadWriteLockedOffHeapClockCacheFactory(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
+  public ReadWriteLockedOffHeapClockCacheFactory(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
     this(tableSource, storageEngineFactory, DEFAULT_TABLE_SIZE);
   }
   
@@ -59,7 +60,7 @@ public class ReadWriteLockedOffHeapClockCacheFactory<K, V> implements Factory<Re
    * @param storageEngineFactory factory for the segment storage engines
    * @param evictionListener listener notified on evictions
    */
-  public ReadWriteLockedOffHeapClockCacheFactory(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, EvictionListener<K, V> evictionListener) {
+  public ReadWriteLockedOffHeapClockCacheFactory(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, EvictionListener<K, V> evictionListener) {
     this(tableSource, storageEngineFactory, evictionListener, DEFAULT_TABLE_SIZE);
   }
 
@@ -71,7 +72,7 @@ public class ReadWriteLockedOffHeapClockCacheFactory<K, V> implements Factory<Re
    * @param storageEngineFactory factory for the segment storage engines
    * @param tableSize initial table size for each segment
    */
-  public ReadWriteLockedOffHeapClockCacheFactory(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, int tableSize) {
+  public ReadWriteLockedOffHeapClockCacheFactory(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, int tableSize) {
     this(tableSource, storageEngineFactory, null, tableSize);
   }
 
@@ -84,7 +85,7 @@ public class ReadWriteLockedOffHeapClockCacheFactory<K, V> implements Factory<Re
    * @param evictionListener  listener notified on evictions
    * @param tableSize initial table size for each segment
    */
-  public ReadWriteLockedOffHeapClockCacheFactory(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, EvictionListener<K, V> evictionListener, int tableSize) {
+  public ReadWriteLockedOffHeapClockCacheFactory(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, EvictionListener<K, V> evictionListener, int tableSize) {
     this.storageEngineFactory = storageEngineFactory;
     this.tableSource = tableSource;
     this.tableSize = tableSize;

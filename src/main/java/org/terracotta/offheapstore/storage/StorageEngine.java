@@ -162,9 +162,9 @@ public interface StorageEngine<K, V> {
 
     public boolean updateEncoding(int hashCode, long lastAddress, long compressed, long mask);
 
-    public Integer getSlotForHashAndEncoding(int hash, long address, long mask);
+    public Long getSlotForHashAndEncoding(int hash, long address, long mask);
 
-    public boolean evict(int slot, boolean b);
+    public boolean evict(long slot, boolean b);
 
     public boolean isThiefForTableAllocations();
     

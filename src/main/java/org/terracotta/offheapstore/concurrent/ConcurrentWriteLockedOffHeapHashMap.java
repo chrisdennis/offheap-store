@@ -16,7 +16,8 @@
 package org.terracotta.offheapstore.concurrent;
 
 import org.terracotta.offheapstore.WriteLockedOffHeapHashMap;
-import org.terracotta.offheapstore.paging.PageSource;
+import org.terracotta.offheapstore.data.IntData;
+import org.terracotta.offheapstore.data.Source;
 import org.terracotta.offheapstore.storage.StorageEngine;
 import org.terracotta.offheapstore.util.Factory;
 
@@ -41,7 +42,7 @@ public class ConcurrentWriteLockedOffHeapHashMap<K, V> extends AbstractConcurren
    * @param tableSource buffer source from which hash tables are allocated
    * @param storageEngineFactory factory for the segment storage engines
    */
-  public ConcurrentWriteLockedOffHeapHashMap(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
+  public ConcurrentWriteLockedOffHeapHashMap(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
     super(new WriteLockedOffHeapHashMapFactory<K, V>(tableSource, storageEngineFactory));
   }
 
@@ -54,7 +55,7 @@ public class ConcurrentWriteLockedOffHeapHashMap<K, V> extends AbstractConcurren
    * @param tableSize initial table size (summed across all segments)
    * @param concurrency number of segments
    */
-  public ConcurrentWriteLockedOffHeapHashMap(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, long tableSize,
+  public ConcurrentWriteLockedOffHeapHashMap(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, long tableSize,
       int concurrency) {
     super(new WriteLockedOffHeapHashMapFactory<K, V>(tableSource, storageEngineFactory, (int) (tableSize / concurrency)), concurrency);
   }

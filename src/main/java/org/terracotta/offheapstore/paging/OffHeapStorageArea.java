@@ -39,6 +39,9 @@ import org.terracotta.offheapstore.storage.allocator.LongBestFitAllocator;
 
 import java.util.Deque;
 import java.util.Random;
+import org.terracotta.offheapstore.data.ByteData;
+import org.terracotta.offheapstore.data.Data;
+import org.terracotta.offheapstore.data.Source;
 
 import static org.terracotta.offheapstore.util.Validation.shouldValidate;
 import static org.terracotta.offheapstore.util.Validation.validate;
@@ -59,11 +62,11 @@ public class OffHeapStorageArea {
   private final float compressThreshold;
 
   private final Owner owner;
-  private final PageSource pageSource;
+  private final Source<ByteData> pageSource;
   private final Allocator allocator;
   private final Random random = new Random();
   
-  private Deque<Collection<Page>> released = new LinkedList<Collection<Page>>();
+  private Deque<Collection<ByteData>> released = new LinkedList<Collection<ByteData>>();
 
   /*
    * This map is only accessed by one thread on write due to write exclusion at
@@ -71,24 +74,24 @@ public class OffHeapStorageArea {
    * sufficient. Switching to a Hashtable/Collections.synchronizedMap(...) would
    * be bad however as we need concurrent read access still.
    */
-  private final Map<Integer, Page> pages = new ConcurrentHashMap<Integer, Page>(1, 0.75f, 1);
+  private final Map<Integer, ByteData> pages = new ConcurrentHashMap<Integer, ByteData>(1, 0.75f, 1);
 
   private final boolean thief;
   private final boolean victim;
   
-  public OffHeapStorageArea(PointerSize width, Owner owner, PageSource pageSource, int pageSize, boolean thief, boolean victim) {
+  public OffHeapStorageArea(PointerSize width, Owner owner, Source<ByteData> pageSource, int pageSize, boolean thief, boolean victim) {
     this(width, owner, pageSource, pageSize, pageSize, thief, victim);
   }
 
-  public OffHeapStorageArea(PointerSize width, Owner owner, PageSource pageSource, int pageSize, boolean thief, boolean victim, float compressThreshold) {
+  public OffHeapStorageArea(PointerSize width, Owner owner, Source<ByteData> pageSource, int pageSize, boolean thief, boolean victim, float compressThreshold) {
     this(width, owner, pageSource, pageSize, pageSize, thief, victim, compressThreshold);
   }
 
-  public OffHeapStorageArea(PointerSize width, Owner owner, PageSource pageSource, int initialPageSize, int maximalPageSize, boolean thief, boolean victim) {
+  public OffHeapStorageArea(PointerSize width, Owner owner, Source<ByteData> pageSource, int initialPageSize, int maximalPageSize, boolean thief, boolean victim) {
     this(width, owner, pageSource, initialPageSize, maximalPageSize, thief, victim, 0.0f);
   }
 
-  public OffHeapStorageArea(PointerSize width, Owner owner, PageSource pageSource, int initialPageSize, int maximalPageSize, boolean thief, boolean victim, float compressThreshold) {
+  public OffHeapStorageArea(PointerSize width, Owner owner, Source<ByteData> pageSource, int initialPageSize, int maximalPageSize, boolean thief, boolean victim, float compressThreshold) {
     if (victim && maximalPageSize != initialPageSize) {
       throw new IllegalArgumentException("Variable page-size offheap storage areas cannot be victims as they do not support stealing.");
     }
@@ -128,8 +131,8 @@ public class OffHeapStorageArea {
 
   public void clear() {
     allocator.clear();
-    for (Iterator<Page> it = pages.values().iterator(); it.hasNext(); ) {
-      Page p = it.next();
+    for (Iterator<ByteData> it = pages.values().iterator(); it.hasNext(); ) {
+      ByteData p = it.next();
       it.remove();
       freePage(p);
     }
@@ -169,11 +172,11 @@ public class OffHeapStorageArea {
     int pageSize = pageSizeFor(pageIndex);
 
     if (pageAddress + 4 <= pageSize) {
-      return pages.get(pageIndex).asByteBuffer().getInt(pageAddress);
+      return pages.get(pageIndex).getInt(pageAddress);
     } else {
       int value = 0;
       for (int i = 0; i < 4; i++) {
-        ByteBuffer buffer = pages.get(pageIndex).asByteBuffer();
+        ByteData buffer = pages.get(pageIndex);
         value |= (0xff & buffer.get(pageAddress)) << (Byte.SIZE * (3 - i));
         address++;
         pageIndex = pageIndexFor(address);
@@ -189,11 +192,11 @@ public class OffHeapStorageArea {
     int pageSize = pageSizeFor(pageIndex);
 
     if (pageAddress + 8 <= pageSize) {
-      return pages.get(pageIndex).asByteBuffer().getLong(pageAddress);
+      return pages.get(pageIndex).getLong(pageAddress);
     } else {
       long value = 0;
       for (int i = 0; i < 8; i++) {
-        ByteBuffer buffer = pages.get(pageIndex).asByteBuffer();
+        ByteData buffer = pages.get(pageIndex);
         value |= (0xffL & buffer.get(pageAddress)) << (Byte.SIZE * (7 - i));
         address++;
         pageIndex = pageIndexFor(address);
@@ -203,18 +206,18 @@ public class OffHeapStorageArea {
     }
   }
 
-  public ByteBuffer readBuffer(long address, int length) {
+  public ByteData readBuffer(long address, int length) {
     int pageIndex = pageIndexFor(address);
     int pageAddress = pageAddressFor(address);
     int pageSize = pageSizeFor(pageIndex);
 
     if (pageAddress + length <= pageSize) {
-      ByteBuffer buffer = pages.get(pageIndex).asByteBuffer();
-      return ((ByteBuffer) buffer.duplicate().limit(pageAddress + length).position(pageAddress)).slice().asReadOnlyBuffer();
+      ByteData buffer = pages.get(pageIndex);
+      return buffer.slice(pageAddress, length).asReadOnly();
     } else {
-      ByteBuffer data = ByteBuffer.allocate(length);
+      ByteData data = Data.allocate(length);
       while (data.hasRemaining()) {
-        ByteBuffer buffer = pages.get(pageIndex).asByteBuffer().duplicate();
+        ByteData buffer = pages.get(pageIndex).slice(pageAddress, address);
         buffer.position(pageAddress);
         if (buffer.remaining() > data.remaining()) {
           buffer.limit(buffer.position() + data.remaining());
@@ -260,7 +263,7 @@ public class OffHeapStorageArea {
     int pageSize = pageSizeFor(pageIndex);
 
     if (pageAddress + 4 <= pageSize) {
-      pages.get(pageIndex).asByteBuffer().putInt(pageAddress, value);
+      pages.get(pageIndex).putInt(pageAddress, value);
     } else {
       for (int i = 0; i < 4; i++) {
         ByteBuffer buffer = pages.get(pageIndex).asByteBuffer();
@@ -279,7 +282,7 @@ public class OffHeapStorageArea {
     int pageSize = pageSizeFor(pageIndex);
 
     if (pageAddress + 8 <= pageSize) {
-      pages.get(pageIndex).asByteBuffer().putLong(pageAddress, value);
+      pages.get(pageIndex).putLong(pageAddress, value);
     } else {
       for (int i = 0; i < 8; i++) {
         ByteBuffer buffer = pages.get(pageIndex).asByteBuffer();
@@ -292,7 +295,7 @@ public class OffHeapStorageArea {
     }
   }
   
-  public void writeBuffer(long address, ByteBuffer data) {
+  public void writeBuffer(long address, ByteData data) {
     int pageIndex = pageIndexFor(address);
     int pageAddress = pageAddressFor(address);
     int pageSize = pageSizeFor(pageIndex);
@@ -324,8 +327,8 @@ public class OffHeapStorageArea {
     }
   }
 
-  public void writeBuffers(long address, ByteBuffer[] data) {
-    for (ByteBuffer buffer : data) {
+  public void writeBuffers(long address, ByteData[] data) {
+    for (ByteData buffer : data) {
       int length = buffer.remaining();
       writeBuffer(address, buffer);
       address += length;
@@ -364,8 +367,8 @@ public class OffHeapStorageArea {
 
   public void destroy() {
     allocator.clear();
-    for (Iterator<Page> it = pages.values().iterator(); it.hasNext(); ) {
-      Page p = it.next();
+    for (Iterator<ByteData> it = pages.values().iterator(); it.hasNext(); ) {
+      ByteData p = it.next();
       it.remove();
       freePage(p);
     }
@@ -388,7 +391,7 @@ public class OffHeapStorageArea {
     if (getAllocatedMemory() + newPageSize > allocator.getMaximumAddress()) {
       return false;
     }
-    Page newPage = pageSource.allocate(newPageSize, thief, victim, this);
+    ByteData newPage = pageSource.allocate(newPageSize, thief, victim, this);
     if (newPage == null) {
       if (LOGGER.isDebugEnabled()) {
         LOGGER.debug("Data area expansion from {} failed", getAllocatedMemory());
@@ -424,14 +427,14 @@ public class OffHeapStorageArea {
   public String toString() {
     StringBuilder sb = new StringBuilder("OffHeapStorageArea\n");
     for (int i = 0; i < pages.size(); ) {
-      Page p = pages.get(i++);
+      ByteData p = pages.get(i++);
       if (p == null) {
         break;
       } else {
-        int size = p.size();
+        long size = p.size();
         int count = 1;
         while (i < pages.size()) {
-          Page q = pages.get(i);
+          ByteData q = pages.get(i);
           if (q != null && q.size() == size) {
             count++;
             i++;
@@ -488,14 +491,14 @@ public class OffHeapStorageArea {
     int lastPage = pageIndexFor(address);
 
     for (int i = pages.size() - 1; i > lastPage; i--) {
-      Page p = pages.remove(i);
+      ByteData p = pages.remove(i);
       allocator.expand(-p.size());
       freePage(p);
     }
     validatePages();
   }
 
-  private void freePage(Page p) {
+  private void freePage(ByteData p) {
     if (released.isEmpty()) {
       pageSource.free(p);
     } else {
@@ -503,7 +506,7 @@ public class OffHeapStorageArea {
     }
   }
 
-  public Collection<Page> release(Collection<Page> targets) {
+  public Collection<ByteData> release(Collection<ByteData> targets) {
     /*
      * TODO This locking might be too coarse grained - can we safely allow
      * threads in to the map while we do this release process?
@@ -517,8 +520,8 @@ public class OffHeapStorageArea {
       ownerLock.lock();
     }
     try {
-      Collection<Page> recovered = new LinkedList<Page>();
-      Collection<Page> freed = new LinkedList<Page>();
+      Collection<ByteData> recovered = new LinkedList<ByteData>();
+      Collection<ByteData> freed = new LinkedList<ByteData>();
       /**
        * iterate backwards from top, and free until top is beneath tail page.
        */
@@ -526,7 +529,7 @@ public class OffHeapStorageArea {
         long remove = allocator.getLastUsedPointer();
         if (remove < 0) {
           for (int i = pages.size() - 1; i >= 0; i--) {
-            Page free = pages.get(i);
+            ByteData free = pages.get(i);
             allocator.expand(-free.size());
             pages.remove(i);
             if (targets.remove(free)) {
@@ -538,11 +541,11 @@ public class OffHeapStorageArea {
           validatePages();
           break;
         } else {
-          Collection<Page> releasedPages = new ArrayList<Page>();
+          Collection<ByteData> releasedPages = new ArrayList<ByteData>();
           released.push(releasedPages);
           try {
             if (owner.evictAtAddress(remove, true) || moveAddressDown(remove)) {
-              for (Page p : releasedPages) {
+              for (ByteData p : releasedPages) {
                 if (targets.remove(p)) {
                   recovered.add(p);
                 } else {
@@ -561,14 +564,14 @@ public class OffHeapStorageArea {
         }
       }
 
-      Iterator<Page> freePageSource = freed.iterator();
-      for (Page t : targets) {
+      Iterator<ByteData> freePageSource = freed.iterator();
+      for (ByteData t : targets) {
         int index = getIndexForPage(t);
         if (index >= 0 && freePageSource.hasNext()) {
-          Page f = freePageSource.next();
+          ByteData f = freePageSource.next();
           validate(!VALIDATING || f != t);
           validate(!VALIDATING || f.size() == t.size());
-          ((ByteBuffer) f.asByteBuffer().clear()).put((ByteBuffer) t.asByteBuffer().clear());
+          f.put(0, t);
           pages.put(index, f);
           recovered.add(t);
         }
@@ -643,7 +646,7 @@ public class OffHeapStorageArea {
         return false;
       } else {
         int initialSize = pages.size();
-        for (Page p : release(new LinkedList<Page>(Collections.singletonList(pages.get(pages.size() - 1))))) {
+        for (ByteData p : release(new LinkedList<ByteData>(Collections.singletonList(pages.get(pages.size() - 1))))) {
           freePage(p);
         }
         return pages.size() < initialSize;
@@ -653,8 +656,8 @@ public class OffHeapStorageArea {
     }
   }
 
-  private int getIndexForPage(Page p) {
-    for (Entry<Integer, Page> e : pages.entrySet()) {
+  private int getIndexForPage(ByteData p) {
+    for (Entry<Integer, ByteData> e : pages.entrySet()) {
       if (e.getValue() == p) {
         return e.getKey();
       }

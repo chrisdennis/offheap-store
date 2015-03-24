@@ -18,7 +18,8 @@ package org.terracotta.offheapstore.eviction;
 import java.util.concurrent.Callable;
 
 import org.terracotta.offheapstore.ReadWriteLockedOffHeapClockCache;
-import org.terracotta.offheapstore.paging.PageSource;
+import org.terracotta.offheapstore.data.IntData;
+import org.terracotta.offheapstore.data.Source;
 import org.terracotta.offheapstore.storage.StorageEngine;
 
 /**
@@ -29,18 +30,18 @@ public class EvictionListeningReadWriteLockedOffHeapClockCache<K, V> extends Rea
 
   private final EvictionListener<K, V> listener;
 
-  public EvictionListeningReadWriteLockedOffHeapClockCache(EvictionListener<K, V> listener, PageSource source, StorageEngine<? super K, ? super V> storageEngine) {
+  public EvictionListeningReadWriteLockedOffHeapClockCache(EvictionListener<K, V> listener, Source<IntData> source, StorageEngine<? super K, ? super V> storageEngine) {
     super(source, storageEngine);
     this.listener = listener;
   }
 
-  public EvictionListeningReadWriteLockedOffHeapClockCache(EvictionListener<K, V> listener, PageSource source, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
+  public EvictionListeningReadWriteLockedOffHeapClockCache(EvictionListener<K, V> listener, Source<IntData> source, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
     super(source, storageEngine, tableSize);
     this.listener = listener;
   }
 
   @Override
-  public boolean evict(final int index, boolean shrink) {
+  public boolean evict(final long index, boolean shrink) {
     boolean evicted;
     try {
       listener.evicting(new Callable<Entry<K, V>>() {

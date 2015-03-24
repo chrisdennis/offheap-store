@@ -22,6 +22,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
+import org.terracotta.offheapstore.data.IntData;
+import org.terracotta.offheapstore.data.Source;
 
 import org.terracotta.offheapstore.paging.PageSource;
 import org.terracotta.offheapstore.storage.StorageEngine;
@@ -44,27 +46,27 @@ public abstract class AbstractLockedOffHeapHashMap<K, V> extends OffHeapHashMap<
   private Set<K> keySet;
   private Collection<V> values;
 
-  public AbstractLockedOffHeapHashMap(PageSource source, StorageEngine<? super K, ? super V> storageEngine) {
+  public AbstractLockedOffHeapHashMap(Source<IntData> source, StorageEngine<? super K, ? super V> storageEngine) {
     super(source, storageEngine);
   }
 
-  public AbstractLockedOffHeapHashMap(PageSource source, boolean tableAllocationsSteal, StorageEngine<? super K, ? super V> storageEngine) {
+  public AbstractLockedOffHeapHashMap(Source<IntData> source, boolean tableAllocationsSteal, StorageEngine<? super K, ? super V> storageEngine) {
     super(source, tableAllocationsSteal, storageEngine);
   }
 
-  public AbstractLockedOffHeapHashMap(PageSource source, StorageEngine<? super K, ? super V> storageEngine, boolean bootstrap) {
+  public AbstractLockedOffHeapHashMap(Source<IntData> source, StorageEngine<? super K, ? super V> storageEngine, boolean bootstrap) {
     super(source, storageEngine, bootstrap);
   }
 
-  public AbstractLockedOffHeapHashMap(PageSource source, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
+  public AbstractLockedOffHeapHashMap(Source<IntData> source, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
     super(source, storageEngine, tableSize);
   }
 
-  public AbstractLockedOffHeapHashMap(PageSource source, boolean tableAllocationsSteal, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
+  public AbstractLockedOffHeapHashMap(Source<IntData> source, boolean tableAllocationsSteal, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
     super(source, tableAllocationsSteal, storageEngine, tableSize);
   }
 
-  public AbstractLockedOffHeapHashMap(PageSource source, StorageEngine<? super K, ? super V> storageEngine, int tableSize, boolean bootstrap) {
+  public AbstractLockedOffHeapHashMap(Source<IntData> source, StorageEngine<? super K, ? super V> storageEngine, int tableSize, boolean bootstrap) {
     super(source, false, storageEngine, tableSize, bootstrap);
   }
 
@@ -320,7 +322,7 @@ public abstract class AbstractLockedOffHeapHashMap<K, V> extends OffHeapHashMap<
   }
 
   @Override
-  public boolean evict(int index, boolean shrink) {
+  public boolean evict(long index, boolean shrink) {
     Lock l = writeLock();
     l.lock();
     try {

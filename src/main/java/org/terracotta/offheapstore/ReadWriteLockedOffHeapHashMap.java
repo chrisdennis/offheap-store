@@ -17,8 +17,9 @@ package org.terracotta.offheapstore;
 
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.terracotta.offheapstore.data.IntData;
+import org.terracotta.offheapstore.data.Source;
 
-import org.terracotta.offheapstore.paging.PageSource;
 import org.terracotta.offheapstore.storage.StorageEngine;
 
 /**
@@ -36,19 +37,19 @@ public class ReadWriteLockedOffHeapHashMap<K, V> extends AbstractLockedOffHeapHa
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
-  public ReadWriteLockedOffHeapHashMap(PageSource tableSource, StorageEngine<? super K, ? super V> storageEngine) {
+  public ReadWriteLockedOffHeapHashMap(Source<IntData> tableSource, StorageEngine<? super K, ? super V> storageEngine) {
     super(tableSource, storageEngine);
   }
 
-  public ReadWriteLockedOffHeapHashMap(PageSource tableSource, boolean tableAllocationsSteal, StorageEngine<? super K, ? super V> storageEngine) {
+  public ReadWriteLockedOffHeapHashMap(Source<IntData> tableSource, boolean tableAllocationsSteal, StorageEngine<? super K, ? super V> storageEngine) {
     super(tableSource, tableAllocationsSteal, storageEngine);
   }
 
-  public ReadWriteLockedOffHeapHashMap(PageSource tableSource, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
+  public ReadWriteLockedOffHeapHashMap(Source<IntData> tableSource, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
     super(tableSource, storageEngine, tableSize);
   }
 
-  public ReadWriteLockedOffHeapHashMap(PageSource tableSource, boolean tableAllocationsSteal, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
+  public ReadWriteLockedOffHeapHashMap(Source<IntData> tableSource, boolean tableAllocationsSteal, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
     super(tableSource, tableAllocationsSteal, storageEngine, tableSize);
   }
 

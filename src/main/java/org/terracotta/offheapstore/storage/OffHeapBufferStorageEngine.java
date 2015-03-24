@@ -273,7 +273,7 @@ public class OffHeapBufferStorageEngine<K, V> extends PortabilityBasedStorageEng
   @Override
   public boolean evictAtAddress(long address, boolean shrink) {
     int hash = storageArea.readInt(address + KEY_HASH_OFFSET);
-    int slot = owner.getSlotForHashAndEncoding(hash, address, ~0);
+    long slot = owner.getSlotForHashAndEncoding(hash, address, ~0);
     return owner.evict(slot, shrink);
   }
 

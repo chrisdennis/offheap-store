@@ -20,7 +20,8 @@ import java.util.Collection;
 import java.util.Iterator;
 
 import org.terracotta.offheapstore.OffHeapHashMap;
-import org.terracotta.offheapstore.paging.PageSource;
+import org.terracotta.offheapstore.data.IntData;
+import org.terracotta.offheapstore.data.Source;
 import org.terracotta.offheapstore.storage.StorageEngine;
 
 /**
@@ -31,7 +32,7 @@ public class OffHeapHashSet<E> extends AbstractSet<E> {
 
   private final OffHeapHashMap<E, Boolean> map;
   
-  public OffHeapHashSet(PageSource source, boolean tableSteals, StorageEngine<? super E, Boolean> engine, int capacity) {
+  public OffHeapHashSet(Source<IntData> source, boolean tableSteals, StorageEngine<? super E, Boolean> engine, int capacity) {
     this(new OffHeapHashMap<E, Boolean>(source, tableSteals, engine, capacity));
   }
 

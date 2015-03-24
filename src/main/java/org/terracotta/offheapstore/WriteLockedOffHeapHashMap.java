@@ -18,8 +18,9 @@ package org.terracotta.offheapstore;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.terracotta.offheapstore.data.IntData;
+import org.terracotta.offheapstore.data.Source;
 
-import org.terracotta.offheapstore.paging.PageSource;
 import org.terracotta.offheapstore.storage.StorageEngine;
 
 /**
@@ -37,11 +38,11 @@ public class WriteLockedOffHeapHashMap<K, V> extends AbstractLockedOffHeapHashMa
 
   private final Lock lock = new ReentrantLock();
 
-  public WriteLockedOffHeapHashMap(PageSource tableSource, StorageEngine<? super K, ? super V> storageEngine) {
+  public WriteLockedOffHeapHashMap(Source<IntData> tableSource, StorageEngine<? super K, ? super V> storageEngine) {
     super(tableSource, storageEngine);
   }
 
-  public WriteLockedOffHeapHashMap(PageSource tableSource, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
+  public WriteLockedOffHeapHashMap(Source<IntData> tableSource, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
     super(tableSource, storageEngine, tableSize);
   }
   

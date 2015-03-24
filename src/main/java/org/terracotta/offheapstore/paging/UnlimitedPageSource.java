@@ -18,12 +18,15 @@ package org.terracotta.offheapstore.paging;
 import java.nio.ByteBuffer;
 
 import org.terracotta.offheapstore.buffersource.BufferSource;
+import org.terracotta.offheapstore.data.ByteData;
+import org.terracotta.offheapstore.data.Data;
+import org.terracotta.offheapstore.data.Source;
 
 /**
  *
  * @author cdennis
  */
-public class UnlimitedPageSource implements PageSource {
+public class UnlimitedPageSource implements Source<ByteData> {
 
   private final BufferSource source;
 
@@ -32,17 +35,21 @@ public class UnlimitedPageSource implements PageSource {
   }
 
   @Override
-  public Page allocate(final int size, boolean thief, boolean victim, OffHeapStorageArea owner) {
-    ByteBuffer buffer = source.allocateBuffer(size);
-    if (buffer == null) {
+  public ByteData allocate(final long size, boolean thief, boolean victim, OffHeapStorageArea owner) {
+    if (size > Integer.MAX_VALUE) {
       return null;
     } else {
-      return new Page(buffer, owner);
+      ByteBuffer buffer = source.allocateBuffer((int) size);
+      if (buffer == null) {
+        return null;
+      } else {
+        return Data.wrap(buffer);
+      }
     }
   }
 
   @Override
-  public void free(Page page) {
+  public void free(ByteData page) {
     //no-op
   }
 }

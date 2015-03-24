@@ -23,6 +23,9 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import org.terracotta.offheapstore.data.ByteData;
+import org.terracotta.offheapstore.data.Data;
+import org.terracotta.offheapstore.data.Source;
 
 /**
  * A {@link PhantomReference} based limited byte buffer source.
@@ -34,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * 
  * @author Chris Dennis
  */
-public class PhantomReferenceLimitedPageSource implements PageSource {
+public class PhantomReferenceLimitedPageSource implements Source<ByteData> {
 
   private final ReferenceQueue<ByteBuffer> allocatedBuffers = new ReferenceQueue<ByteBuffer>();
   private final Map<PhantomReference<ByteBuffer>, Integer> bufferSizes = new ConcurrentHashMap<PhantomReference<ByteBuffer>, Integer>();
@@ -57,23 +60,25 @@ public class PhantomReferenceLimitedPageSource implements PageSource {
    * the buffer.
    */
   @Override
-  public Page allocate(int size, boolean thief, boolean victim, OffHeapStorageArea owner) {
+  public ByteData allocate(long size, boolean thief, boolean victim, OffHeapStorageArea owner) {
+    if (size > Integer.MAX_VALUE) {
+      return null;
+    } else {
       while (true) {
-          processQueue();
-          long now = max.get();
-          if (now < size) {
+        processQueue();
+        long now = max.get();
+        if (now < size) {
+          ByteBuffer buffer;
+          try {
+            buffer = ByteBuffer.allocateDirect((int) size);
+          } catch (OutOfMemoryError e) {
             return null;
-          } else if (max.compareAndSet(now, now - size)) {
-            ByteBuffer buffer;
-            try {
-              buffer = ByteBuffer.allocateDirect(size);
-            } catch (OutOfMemoryError e) {
-              return null;
-            }
-            bufferSizes.put(new PhantomReference<ByteBuffer>(buffer, allocatedBuffers), size);
-            return new Page(buffer, owner);
           }
+          bufferSizes.put(new PhantomReference<ByteBuffer>(buffer, allocatedBuffers), Integer.valueOf((int) size));
+          return Data.wrap(buffer);
+        }
       }
+    }
   }
 
   /**
@@ -84,7 +89,7 @@ public class PhantomReferenceLimitedPageSource implements PageSource {
    * references.
    */
   @Override
-  public void free(Page buffer) {
+  public void free(ByteData buffer) {
     //no-op
   }
 

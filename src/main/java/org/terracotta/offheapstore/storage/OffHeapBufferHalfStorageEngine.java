@@ -19,7 +19,6 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.locks.Lock;
 
 import org.terracotta.offheapstore.paging.OffHeapStorageArea;
-import org.terracotta.offheapstore.paging.PageSource;
 import org.terracotta.offheapstore.storage.StorageEngine.Owner;
 import org.terracotta.offheapstore.storage.portability.Portability;
 import org.terracotta.offheapstore.util.DebuggingUtils;
@@ -160,7 +159,7 @@ public class OffHeapBufferHalfStorageEngine<T> extends PortabilityBasedHalfStora
   @Override
   public boolean evictAtAddress(long address, boolean shrink) {
     int hash = storageArea.readInt(address + KEY_HASH_OFFSET);
-    int slot = owner.getSlotForHashAndEncoding(hash, address, mask);
+    long slot = owner.getSlotForHashAndEncoding(hash, address, mask);
     return owner.evict(slot, shrink);
   }
 

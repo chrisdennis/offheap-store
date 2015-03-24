@@ -44,6 +44,8 @@ import java.util.NavigableSet;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+import org.terracotta.offheapstore.data.ByteData;
+import org.terracotta.offheapstore.data.Source;
 
 import static org.terracotta.offheapstore.storage.allocator.PowerOfTwoAllocator.Packing.FLOOR;
 import static org.terracotta.offheapstore.storage.allocator.PowerOfTwoAllocator.Packing.CEILING;
@@ -57,7 +59,7 @@ import static org.terracotta.offheapstore.storage.allocator.PowerOfTwoAllocator.
  *
  * @author Chris Dennis
  */
-public class UpfrontAllocatingPageSource implements PageSource {
+public class UpfrontAllocatingPageSource implements Source<ByteData> {
 
     public static final String ALLOCATION_LOG_LOCATION = UpfrontAllocatingPageSource.class.getName() + ".allocationDump";
 
@@ -151,7 +153,7 @@ public class UpfrontAllocatingPageSource implements PageSource {
      * @return a buffer of at least the given size
      */
     @Override
-    public Page allocate(int size, boolean thief, boolean victim, OffHeapStorageArea owner) {
+    public ByteData allocate(long size, boolean thief, boolean victim, OffHeapStorageArea owner) {
       if (thief) {
         return allocateAsThief(size, victim, owner);
       } else {
@@ -159,8 +161,8 @@ public class UpfrontAllocatingPageSource implements PageSource {
       }
     }
 
-    private Page allocateAsThief(final int size, boolean victim, OffHeapStorageArea owner) {
-      Page free = allocateFromFree(size, victim, owner);
+    private ByteData allocateAsThief(final long size, boolean victim, OffHeapStorageArea owner) {
+      ByteData free = allocateFromFree(size, victim, owner);
 
       if (free != null) {
         return free;
@@ -220,7 +222,7 @@ public class UpfrontAllocatingPageSource implements PageSource {
        * Drop the page source synchronization here to prevent deadlock against
        * map/cache threads.
        */
-      Collection<Page> results = new LinkedList<Page>();
+      Collection<ByteData> results = new LinkedList<ByteData>();
       for (Entry<OffHeapStorageArea, Collection<Page>> e : releases.entrySet()) {
         OffHeapStorageArea a = e.getKey();
         Collection<Page> p = e.getValue();
@@ -271,7 +273,7 @@ public class UpfrontAllocatingPageSource implements PageSource {
                                                      new Page(null, -1, address + size, null)));
     }
 
-    private Page allocateFromFree(int size, boolean victim, OffHeapStorageArea owner) {
+    private ByteData allocateFromFree(long size, boolean victim, OffHeapStorageArea owner) {
         if (Integer.bitCount(size) != 1) {
             int rounded = Integer.highestOneBit(size) << 1;
             LOGGER.info("Request to allocate {}B will allocate {}B", size, DebuggingUtils.toBase2SuffixedString(rounded));
@@ -315,7 +317,8 @@ public class UpfrontAllocatingPageSource implements PageSource {
      * freed then an {@code AssertionError} is thrown.
      */
     @Override
-    public synchronized void free(Page page) {
+    public synchronized void free(ByteData page) {
+      if (page instanceof Page) {
         if (page.isFreeable()) {
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Freeing a {}B buffer from chunk {} &{}", new Object[]{DebuggingUtils.toBase2SuffixedString(page.size()), page.index(), page.address()});
@@ -329,6 +332,9 @@ public class UpfrontAllocatingPageSource implements PageSource {
               fireThresholds(allocated + page.size(), allocated);
             }
         }
+      } else {
+        throw new AssertionError();
+      }
     }
 
     public synchronized long getAllocatedSize() {
@@ -508,6 +514,70 @@ public class UpfrontAllocatingPageSource implements PageSource {
         return allocatorLogStream;
       }
     }
+
+  /**
+   *
+   * @author Chris Dennis
+   */
+  static class Page implements ByteData {
+
+    private final ByteData buffer;
+    private final OffHeapStorageArea binding;
+    private final int index;
+    private final int address;
+    private boolean freeable;
+
+    public Page(ByteData buffer, OffHeapStorageArea binding) {
+      super();
+      this.buffer = buffer;
+      this.binding = binding;
+      this.index = -1;
+      this.address = -1;
+      this.freeable = false;
+    }
+
+    public Page(ByteData buffer, int index, int address, OffHeapStorageArea binding) {
+      super();
+      this.buffer = buffer;
+      this.binding = binding;
+      this.index = index;
+      this.address = address;
+      this.freeable = true;
+    }
+
+    public ByteData asByteData() {
+      return buffer;
+    }
+
+    public int size() {
+      if (buffer == null) {
+        return 0;
+      } else {
+        return buffer.size();
+      }
+    }
+
+    public int index() {
+      return index;
+    }
+
+    public int address() {
+      return address;
+    }
+
+    public OffHeapStorageArea binding() {
+      return binding;
+    }
+
+    synchronized boolean isFreeable() {
+      if (freeable) {
+        freeable = false;
+        return true;
+      } else {
+        return false;
+      }
+    }
+  }
 
     public enum ThresholdDirection {
       RISING, FALLING;

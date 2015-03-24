@@ -16,8 +16,9 @@
 package org.terracotta.offheapstore.concurrent;
 
 import org.terracotta.offheapstore.WriteLockedOffHeapClockCache;
+import org.terracotta.offheapstore.data.IntData;
+import org.terracotta.offheapstore.data.Source;
 import org.terracotta.offheapstore.eviction.EvictionListener;
-import org.terracotta.offheapstore.paging.PageSource;
 import org.terracotta.offheapstore.storage.StorageEngine;
 import org.terracotta.offheapstore.util.Factory;
 
@@ -42,7 +43,7 @@ public class ConcurrentWriteLockedOffHeapClockCache<K, V> extends AbstractConcur
    * @param tableSource buffer source from which hash tables are allocated
    * @param storageEngineFactory factory for the segment storage engines
    */
-  public ConcurrentWriteLockedOffHeapClockCache(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
+  public ConcurrentWriteLockedOffHeapClockCache(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
     super(new WriteLockedOffHeapClockCacheFactory<K, V>(tableSource, storageEngineFactory));
   }
 
@@ -54,7 +55,7 @@ public class ConcurrentWriteLockedOffHeapClockCache<K, V> extends AbstractConcur
    * @param storageEngineFactory factory for the segment storage engines
    * @param evictionListener  listener notified on evictions
    */
-  public ConcurrentWriteLockedOffHeapClockCache(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, EvictionListener<K, V> evictionListener) {
+  public ConcurrentWriteLockedOffHeapClockCache(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, EvictionListener<K, V> evictionListener) {
     super(new WriteLockedOffHeapClockCacheFactory<K, V>(tableSource, storageEngineFactory, evictionListener));
   }
 
@@ -67,7 +68,7 @@ public class ConcurrentWriteLockedOffHeapClockCache<K, V> extends AbstractConcur
    * @param tableSize initial table size (summed across all segments)
    * @param concurrency number of segments
    */
-  public ConcurrentWriteLockedOffHeapClockCache(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, long tableSize,
+  public ConcurrentWriteLockedOffHeapClockCache(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, long tableSize,
       int concurrency) {
     super(new WriteLockedOffHeapClockCacheFactory<K, V>(tableSource, storageEngineFactory, (int) (tableSize / concurrency)), concurrency);
   }
@@ -82,7 +83,7 @@ public class ConcurrentWriteLockedOffHeapClockCache<K, V> extends AbstractConcur
    * @param tableSize initial table size (summed across all segments)
    * @param concurrency number of segments
    */
-  public ConcurrentWriteLockedOffHeapClockCache(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, EvictionListener<K, V> evictionListener,
+  public ConcurrentWriteLockedOffHeapClockCache(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, EvictionListener<K, V> evictionListener,
           long tableSize, int concurrency) {
     super(new WriteLockedOffHeapClockCacheFactory<K, V>(tableSource, storageEngineFactory, evictionListener, (int) (tableSize / concurrency)), concurrency);
   }

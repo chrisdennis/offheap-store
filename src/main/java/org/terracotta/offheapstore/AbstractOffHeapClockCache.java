@@ -22,13 +22,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.terracotta.offheapstore.exceptions.OversizeMappingException;
-import org.terracotta.offheapstore.paging.PageSource;
 import org.terracotta.offheapstore.pinning.PinnableCache;
 import org.terracotta.offheapstore.pinning.PinnableSegment;
 import org.terracotta.offheapstore.storage.StorageEngine;
 import org.terracotta.offheapstore.util.DebuggingUtils;
 
-import java.nio.IntBuffer;
+import org.terracotta.offheapstore.data.IntData;
+import org.terracotta.offheapstore.data.Source;
 
 /**
  * An abstract off-heap cache implementation.
@@ -52,27 +52,27 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
 
   private int clockHand;
 
-  public AbstractOffHeapClockCache(PageSource source, StorageEngine<? super K, ? super V> storageEngine) {
+  public AbstractOffHeapClockCache(Source<IntData> source, StorageEngine<? super K, ? super V> storageEngine) {
     super(source, storageEngine);
   }
 
-  public AbstractOffHeapClockCache(PageSource source, boolean tableAllocationsSteal, StorageEngine<? super K, ? super V> storageEngine) {
+  public AbstractOffHeapClockCache(Source<IntData> source, boolean tableAllocationsSteal, StorageEngine<? super K, ? super V> storageEngine) {
     super(source, tableAllocationsSteal, storageEngine);
   }
 
-  public AbstractOffHeapClockCache(PageSource source, StorageEngine<? super K, ? super V> storageEngine, boolean bootstrap) {
+  public AbstractOffHeapClockCache(Source<IntData> source, StorageEngine<? super K, ? super V> storageEngine, boolean bootstrap) {
     super(source, storageEngine, bootstrap);
   }
 
-  public AbstractOffHeapClockCache(PageSource source, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
+  public AbstractOffHeapClockCache(Source<IntData> source, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
     super(source, storageEngine, tableSize);
   }
   
-  public AbstractOffHeapClockCache(PageSource source, boolean tableAllocationsSteal, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
+  public AbstractOffHeapClockCache(Source<IntData> source, boolean tableAllocationsSteal, StorageEngine<? super K, ? super V> storageEngine, int tableSize) {
     super(source, tableAllocationsSteal, storageEngine, tableSize);
   }
   
-  public AbstractOffHeapClockCache(PageSource source, StorageEngine<? super K, ? super V> storageEngine, int tableSize, boolean bootstrap) {
+  public AbstractOffHeapClockCache(Source<IntData> source, StorageEngine<? super K, ? super V> storageEngine, int tableSize, boolean bootstrap) {
     super(source, storageEngine, tableSize, bootstrap);
   }
 
@@ -95,8 +95,8 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
   }
 
   @Override
-  protected void tableExpansionFailure(int start, int length) {
-    int evictionIndex = getEvictionIndex(start, length);
+  protected void tableExpansionFailure(long start, int length) {
+    long evictionIndex = getEvictionIndex(start, length);
     if (evictionIndex < 0) {
       if (tryIncreaseReprobe()) {
         LOGGER.debug("Increased reprobe to {} slots for a {} slot table in a last ditch attempt to avoid storage failure.", getReprobeLength(), getTableCapacity());
@@ -114,7 +114,7 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
   }
 
   @Override
-  protected void hit(IntBuffer entry) {
+  protected void hit(IntData entry) {
     entry.put(STATUS, PRESENT_CLOCK | entry.get(STATUS));
   }
 
@@ -131,14 +131,14 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
      * point past the end of the table.  We cannot allow the initial-hand to
      * be equal to this otherwise we may never be able to terminate this loop.
      */
-    if (clockHand >= hashtable.capacity()) {
+    if (clockHand >= hashtable.size()) {
       clockHand = 0;
     }
     
     int initialHand = clockHand;
     int loops = 0;
     while (true) {
-      if ((clockHand += ENTRY_SIZE) + STATUS >= hashtable.capacity()) {
+      if ((clockHand += ENTRY_SIZE) + STATUS >= hashtable.size()) {
         clockHand = 0;
       }
 
@@ -166,7 +166,7 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
    * @param length number of slots in probe sequence
    * @return table offset of the mapping to be evicted
    */
-  private int getEvictionIndex(int start, int length) {
+  private long getEvictionIndex(long start, int length) {
     /*
      * TODO This pseudo clock eviction may not be the best algorithm.  Currently
      * the algorithm is to do a regular eviction selection, which helps the clock
@@ -179,16 +179,16 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
      * clear space for the incoming element.  If all elements have set clock bits
      * then we just kick one out at random.
      */
-    int index = getEvictionIndex();
+    long index = getEvictionIndex();
 
-    int tableLength = hashtable.capacity();
+    long tableLength = hashtable.size();
     int probeLength = length * ENTRY_SIZE;
 
-    if (probeLength >= hashtable.capacity()) {
+    if (probeLength >= hashtable.size()) {
       return index;
     }
 
-    int end = (start + probeLength) & (tableLength - 1);
+    long end = (start + probeLength) & (tableLength - 1);
 
     if (index < 0) {
       return index;
@@ -199,7 +199,8 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
     } else {
       evict(index, false);
 
-      for (int i = 0, clock = start; i < length; i++) {
+      long clock = start;
+      for (int i = 0; i < length; i++) {
         if ((clock += ENTRY_SIZE) >= tableLength) {
           clock = start;
         }
@@ -211,8 +212,9 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
         }
       }
       
-      int lastEvictable = -1;
-      for (int i = 0, clock = start; i < rndm.nextInt(length) || (lastEvictable < 0 && i < length); i++) {
+      long lastEvictable = -1;
+      clock = start;
+      for (int i = 0; i < rndm.nextInt(length) || (lastEvictable < 0 && i < length); i++) {
         if ((clock += ENTRY_SIZE) >= tableLength) {
           clock = start;
         }
@@ -232,7 +234,7 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
   }
 
   @Override
-  public boolean evict(int index, boolean shrink) {
+  public boolean evict(long index, boolean shrink) {
     Lock l = writeLock();
     l.lock();
     try {

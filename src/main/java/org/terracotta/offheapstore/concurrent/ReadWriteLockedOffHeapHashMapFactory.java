@@ -16,7 +16,8 @@
 package org.terracotta.offheapstore.concurrent;
 
 import org.terracotta.offheapstore.ReadWriteLockedOffHeapHashMap;
-import org.terracotta.offheapstore.paging.PageSource;
+import org.terracotta.offheapstore.data.IntData;
+import org.terracotta.offheapstore.data.Source;
 import org.terracotta.offheapstore.storage.StorageEngine;
 import org.terracotta.offheapstore.util.Factory;
 
@@ -33,7 +34,7 @@ public class ReadWriteLockedOffHeapHashMapFactory<K, V> implements Factory<ReadW
   private static final int DEFAULT_TABLE_SIZE = 128;
 
   private final Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory;
-  private final PageSource tableSource;
+  private final Source<IntData> tableSource;
   private final boolean tableAllocationsSteal;
   private final int tableSize;
   
@@ -44,15 +45,15 @@ public class ReadWriteLockedOffHeapHashMapFactory<K, V> implements Factory<ReadW
    * @param tableSource buffer source from which the segment hash tables are allocated
    * @param storageEngineFactory factory for the segment storage engines
    */
-  public ReadWriteLockedOffHeapHashMapFactory(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
+  public ReadWriteLockedOffHeapHashMapFactory(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
     this(tableSource, false, storageEngineFactory, DEFAULT_TABLE_SIZE);
   }
 
-  public ReadWriteLockedOffHeapHashMapFactory(PageSource tableSource, boolean tableAllocationsSteal, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
+  public ReadWriteLockedOffHeapHashMapFactory(Source<IntData> tableSource, boolean tableAllocationsSteal, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory) {
     this(tableSource, tableAllocationsSteal, storageEngineFactory, DEFAULT_TABLE_SIZE);
   }
 
-  public ReadWriteLockedOffHeapHashMapFactory(PageSource tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, int tableSize) {
+  public ReadWriteLockedOffHeapHashMapFactory(Source<IntData> tableSource, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, int tableSize) {
     this(tableSource, false, storageEngineFactory, tableSize);
   }
 
@@ -64,7 +65,7 @@ public class ReadWriteLockedOffHeapHashMapFactory<K, V> implements Factory<ReadW
    * @param storageEngineFactory factory for the segment storage engines
    * @param tableSize initial table size for each segment
    */
-  public ReadWriteLockedOffHeapHashMapFactory(PageSource tableSource, boolean tableAllocationsSteal, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, int tableSize) {
+  public ReadWriteLockedOffHeapHashMapFactory(Source<IntData> tableSource, boolean tableAllocationsSteal, Factory<? extends StorageEngine<? super K, ? super V>> storageEngineFactory, int tableSize) {
     this.storageEngineFactory = storageEngineFactory;
     this.tableSource = tableSource;
     this.tableAllocationsSteal = tableAllocationsSteal;
