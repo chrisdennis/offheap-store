@@ -41,7 +41,7 @@ public class CapacityLimitedIntegerStorageEngineFactory implements Factory<Capac
     }
 
     @Override
-    public Long writeMapping(Integer key, Integer value, int hash, int metadata) {
+    public Long writeMapping(Integer key, Integer value, long hash, int metadata) {
       if (used < capacity) {
         used++;
         return super.writeMapping(key, value, hash, metadata);
@@ -51,7 +51,7 @@ public class CapacityLimitedIntegerStorageEngineFactory implements Factory<Capac
     }
     
     @Override
-    public void freeMapping(long encoding, int hash, boolean removal) {
+    public void freeMapping(long encoding, long hash, boolean removal) {
       used--;
       super.freeMapping(encoding, hash, removal);
     }

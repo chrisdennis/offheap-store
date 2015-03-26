@@ -63,17 +63,17 @@ public interface Generator {
         }
 
         @Override
-        public Long writeMapping(SpecialInteger key, SpecialInteger value, int hash, int metadata) {
+        public Long writeMapping(SpecialInteger key, SpecialInteger value, long hash, int metadata) {
           return SplitStorageEngine.encoding(key.value(), value.value());
         }
 
         @Override
-        public void attachedMapping(long encoding, int hash, int metadata) {
+        public void attachedMapping(long encoding, long hash, int metadata) {
           //no-op
         }
 
         @Override
-        public void freeMapping(long encoding, int hash, boolean removal) {
+        public void freeMapping(long encoding, long hash, boolean removal) {
           //no-op
         }
 
@@ -88,7 +88,7 @@ public interface Generator {
         }
 
         @Override
-        public SpecialInteger readKey(long encoding, int hashCode) {
+        public SpecialInteger readKey(long encoding, long hashCode) {
           return new GoodInteger(SplitStorageEngine.keyEncoding(encoding));
         }
 
@@ -172,17 +172,17 @@ public interface Generator {
         }
 
         @Override
-        public Long writeMapping(SpecialInteger key, SpecialInteger value, int hash, int metadata) {
+        public Long writeMapping(SpecialInteger key, SpecialInteger value, long hash, int metadata) {
           return SplitStorageEngine.encoding(key.value(), value.value());
         }
 
         @Override
-        public void attachedMapping(long encoding, int hash, int metadata) {
+        public void attachedMapping(long encoding, long hash, int metadata) {
           //no-op
         }
 
         @Override
-        public void freeMapping(long encoding, int hash, boolean removal) {
+        public void freeMapping(long encoding, long hash, boolean removal) {
           //no-op
         }
 
@@ -197,7 +197,7 @@ public interface Generator {
         }
 
         @Override
-        public SpecialInteger readKey(long encoding, int hashCode) {
+        public SpecialInteger readKey(long encoding, long hashCode) {
           return new BadInteger(SplitStorageEngine.keyEncoding(encoding));
         }
 

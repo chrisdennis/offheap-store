@@ -201,7 +201,7 @@ public abstract class AbstractPinningIT extends PointerSizeParameterizedTest {
 
     Assert.assertNull(cache.put(-1, 42));
 
-    for (int c = 0; c < 100 && cache.containsKey(-1); c++) {
+    for (int c = 0; c < 1000 && cache.containsKey(-1); c++) {
       for (int i = 0; i < capacity; i++) {
         cache.put((c * capacity) + i, i);
       }
@@ -246,7 +246,7 @@ public abstract class AbstractPinningIT extends PointerSizeParameterizedTest {
 
     Assert.assertNull(cache.put(-1, 42));
 
-    for (int c = 0; c < 100 && cache.containsKey(-1); c++) {
+    for (int c = 0; c < 1000 && cache.containsKey(-1); c++) {
       for (int i = 0; i < capacity; i++) {
         cache.put((c * capacity) + i, i);
       }

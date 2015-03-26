@@ -43,19 +43,19 @@ public abstract class AbstractListenableStorageEngine<K, V> implements Listenabl
     return !recoveryListeners.isEmpty();
   }
   
-  protected final void fireRecovered(Callable<K> key, Callable<V> value, ByteBuffer binaryKey, ByteBuffer binaryValue, int hash, int metadata, long encoding) {
+  protected final void fireRecovered(Callable<K> key, Callable<V> value, ByteBuffer binaryKey, ByteBuffer binaryValue, long hash, int metadata, long encoding) {
     for (RecoveryStorageEngineListener<? super K, ? super V> listener : recoveryListeners) {
       listener.recovered(key, value, binaryKey.duplicate(), binaryValue.duplicate(), hash, metadata, encoding);
     }
   }
   
-  protected final void fireWritten(K key, V value, ByteBuffer binaryKey, ByteBuffer binaryValue, int hash, int metadata, long encoding) {
+  protected final void fireWritten(K key, V value, ByteBuffer binaryKey, ByteBuffer binaryValue, long hash, int metadata, long encoding) {
     for (RuntimeStorageEngineListener<? super K, ? super V> listener : runtimeListeners) {
       listener.written(key, value, binaryKey.duplicate(), binaryValue.duplicate(), hash, metadata, encoding);
     }
   }
   
-  protected final void fireFreed(long encoding, int hash, ByteBuffer binaryKey, boolean removed) {
+  protected final void fireFreed(long encoding, long hash, ByteBuffer binaryKey, boolean removed) {
     for (RuntimeStorageEngineListener<? super K, ? super V> listener : runtimeListeners) {
       listener.freed(encoding, hash, binaryKey.duplicate(), removed);
     }
@@ -67,7 +67,7 @@ public abstract class AbstractListenableStorageEngine<K, V> implements Listenabl
     }
   }
   
-  protected final void fireCopied(int hash, long oldEncoding, long newEncoding, int metadata) {
+  protected final void fireCopied(long hash, long oldEncoding, long newEncoding, int metadata) {
     for (RuntimeStorageEngineListener<? super K, ? super V> listener : runtimeListeners) {
       listener.copied(hash, oldEncoding, newEncoding, metadata);
     }

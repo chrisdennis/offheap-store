@@ -50,7 +50,7 @@ public class IntegerStorageEngine implements HalfStorageEngine<Integer> {
   }
 
   @Override
-  public Integer write(Integer value, int hash) {
+  public Integer write(Integer value, long hash) {
     return value;
   }
 

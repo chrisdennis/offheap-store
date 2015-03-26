@@ -58,9 +58,9 @@ public class FileBackedStorageEngine<K, V> extends PortabilityBasedStorageEngine
   private static final Logger LOGGER = LoggerFactory.getLogger(FileBackedStorageEngine.class);
 
   private static final int KEY_HASH_OFFSET = 0;
-  private static final int KEY_LENGTH_OFFSET = 4;
-  private static final int VALUE_LENGTH_OFFSET = 8;
-  private static final int KEY_DATA_OFFSET = 12;
+  private static final int KEY_LENGTH_OFFSET = 8;
+  private static final int VALUE_LENGTH_OFFSET = 12;
+  private static final int KEY_DATA_OFFSET = 16;
 
   private final ConcurrentHashMap<Long, FileWriteTask> pendingWrites = new ConcurrentHashMap<Long, FileWriteTask>();
   private final ExecutorService writeExecutor;
@@ -230,7 +230,7 @@ public class FileBackedStorageEngine<K, V> extends PortabilityBasedStorageEngine
       for (Long encoding : owner.encodingSet()) {
         ByteBuffer binaryKey = readBinaryKey(encoding);
         ByteBuffer binaryValue = readBinaryValue(encoding);
-        int hash = readKeyHash(encoding);
+        long hash = readKeyHash(encoding);
 
         final ByteBuffer binaryKeyForDecode = binaryKey.duplicate();
         final ByteBuffer binaryValueForDecode = binaryValue.duplicate();
@@ -291,7 +291,7 @@ public class FileBackedStorageEngine<K, V> extends PortabilityBasedStorageEngine
   }
 
   @Override
-  protected Long writeMappingBuffers(ByteBuffer keyBuffer, ByteBuffer valueBuffer, int hash) {
+  protected Long writeMappingBuffers(ByteBuffer keyBuffer, ByteBuffer valueBuffer, long hash) {
     for (FileChunk c : chunks) {
       Long address = c.writeMappingBuffers(keyBuffer, valueBuffer, hash);
       if (address != null) {
@@ -390,6 +390,19 @@ public class FileBackedStorageEngine<K, V> extends PortabilityBasedStorageEngine
     writeBufferToChannel(position, buffer);
   }
 
+  private long readLongFromChannel(long position) throws IOException {
+    ByteBuffer lengthBuffer = ByteBuffer.allocate(Long.SIZE / Byte.SIZE);
+    for (int i = 0; lengthBuffer.hasRemaining(); ) {
+      int read = readFromChannel(lengthBuffer, position + i);
+      if (read < 0) {
+        throw new EOFException();
+      } else {
+        i += read;
+      }
+    }
+    return ((ByteBuffer) lengthBuffer.flip()).getLong();
+  }
+  
   private void writeLongToChannel(long position, long data) throws IOException {
     ByteBuffer buffer = ByteBuffer.allocate(Long.SIZE / Byte.SIZE);
     buffer.putLong(data).flip();
@@ -525,12 +538,12 @@ public class FileBackedStorageEngine<K, V> extends PortabilityBasedStorageEngine
       }
     }
 
-    protected int readPojoHash(long address) {
+    protected long readPojoHash(long address) {
       try {
         long position = filePosition + address;
         FileWriteTask pending = pendingWrites.get(position);
         if (pending == null) {
-          return readIntFromChannel(position + KEY_HASH_OFFSET);
+          return readLongFromChannel(position + KEY_HASH_OFFSET);
         } else {
           return pending.pojoHash;
         }
@@ -587,7 +600,7 @@ public class FileBackedStorageEngine<K, V> extends PortabilityBasedStorageEngine
       }
     }
 
-    Long writeMappingBuffers(ByteBuffer keyBuffer, ByteBuffer valueBuffer, int pojoHash) {
+    Long writeMappingBuffers(ByteBuffer keyBuffer, ByteBuffer valueBuffer, long pojoHash) {
       int keyLength = keyBuffer.remaining();
       int valueLength = valueBuffer.remaining();
       long address = allocator.allocate(keyLength + valueLength + KEY_DATA_OFFSET);
@@ -752,10 +765,10 @@ public class FileBackedStorageEngine<K, V> extends PortabilityBasedStorageEngine
     private final FileChunk chunk;
     private final ByteBuffer keyBuffer;
     private final ByteBuffer valueBuffer;
-    private final int pojoHash;
+    private final long pojoHash;
     private final long position;
 
-    FileWriteTask(FileChunk chunk, long position, ByteBuffer keyBuffer, ByteBuffer valueBuffer, int pojoHash) {
+    FileWriteTask(FileChunk chunk, long position, ByteBuffer keyBuffer, ByteBuffer valueBuffer, long pojoHash) {
       this.chunk = chunk;
       this.position = position;
       this.keyBuffer = keyBuffer;
@@ -800,7 +813,7 @@ public class FileBackedStorageEngine<K, V> extends PortabilityBasedStorageEngine
       int keyLength = key.remaining();
       int valueLength = value.remaining();
 
-      writeIntToChannel(position + KEY_HASH_OFFSET, pojoHash);
+      writeLongToChannel(position + KEY_HASH_OFFSET, pojoHash);
       writeIntToChannel(position + KEY_LENGTH_OFFSET, keyLength);
       writeIntToChannel(position + VALUE_LENGTH_OFFSET, valueLength);
       writeBufferToChannel(position + KEY_DATA_OFFSET, key);
@@ -823,7 +836,7 @@ public class FileBackedStorageEngine<K, V> extends PortabilityBasedStorageEngine
   }
 
   @Override
-  public int readKeyHash(long address) {
+  public long readKeyHash(long address) {
     FileChunk chunk = findChunk(address);
     return chunk.readPojoHash(address - chunk.baseAddress());
   }

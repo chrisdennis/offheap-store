@@ -55,7 +55,7 @@ public abstract class PortabilityBasedStorageEngine<K, V> extends AbstractListen
   }
 
   @Override
-  public final Long writeMapping(K key, V value, int hash, int metadata) {
+  public final Long writeMapping(K key, V value, long hash, int metadata) {
     Long result;
     if (lastMapping != null && lastMapping.getKey() == key && lastMapping.getValue() == value) {
       result = writeMappingBuffers(lastMapping.getEncodedKey(), lastMapping.getEncodedValue(), hash);
@@ -72,12 +72,12 @@ public abstract class PortabilityBasedStorageEngine<K, V> extends AbstractListen
   }
   
   @Override
-  public void attachedMapping(long encoding, int hash, int metadata) {
+  public void attachedMapping(long encoding, long hash, int metadata) {
     //no-op
   }
 
   @Override
-  public final void freeMapping(long encoding, int hash, boolean removal) {
+  public final void freeMapping(long encoding, long hash, boolean removal) {
     if (hasListeners()) {
       ByteBuffer binaryKey = readBinaryKey(encoding);
       free(encoding);
@@ -112,7 +112,7 @@ public abstract class PortabilityBasedStorageEngine<K, V> extends AbstractListen
 
   @SuppressWarnings("unchecked")
   @Override
-  public K readKey(long encoding, int hashCode) {
+  public K readKey(long encoding, long hashCode) {
     if (keyPortability instanceof WriteBackPortability<?>) {
       return (K) ((WriteBackPortability<? super K>) keyPortability).decode(readKeyBuffer(encoding), getKeyWriteContext(encoding));
     } else {
@@ -161,16 +161,16 @@ public abstract class PortabilityBasedStorageEngine<K, V> extends AbstractListen
   }
 
   @Override
-  public Long writeBinaryMapping(ByteBuffer[] binaryKey, ByteBuffer[] binaryValue, int pojoHash, int metadata) {
+  public Long writeBinaryMapping(ByteBuffer[] binaryKey, ByteBuffer[] binaryValue, long pojoHash, int metadata) {
     return writeMappingBuffersGathering(binaryKey, binaryValue, pojoHash);
   }
   
   @Override
-  public Long writeBinaryMapping(ByteBuffer binaryKey, ByteBuffer binaryValue, int pojoHash, int metadata) {
+  public Long writeBinaryMapping(ByteBuffer binaryKey, ByteBuffer binaryValue, long pojoHash, int metadata) {
     return writeMappingBuffers(binaryKey, binaryValue, pojoHash);
   }
   
-  protected Long writeMappingBuffersGathering(ByteBuffer[] keyBuffers, ByteBuffer[] valueBuffers, int hash) {
+  protected Long writeMappingBuffersGathering(ByteBuffer[] keyBuffers, ByteBuffer[] valueBuffers, long hash) {
     return writeMappingBuffers(aggregate(keyBuffers), aggregate(valueBuffers), hash);
   }
   
@@ -186,7 +186,7 @@ public abstract class PortabilityBasedStorageEngine<K, V> extends AbstractListen
   
   protected abstract WriteContext getValueWriteContext(long address);
 
-  protected abstract Long writeMappingBuffers(ByteBuffer keyBuffer, ByteBuffer valueBuffer, int hash);
+  protected abstract Long writeMappingBuffers(ByteBuffer keyBuffer, ByteBuffer valueBuffer, long hash);
 
   @Override
   public void invalidateCache() {

@@ -46,7 +46,7 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
 
   private static final Logger LOGGER = LoggerFactory.getLogger(AbstractOffHeapClockCache.class);
   
-  private static final int PRESENT_CLOCK = 1 << (Integer.SIZE - 1);
+  private static final int PRESENT_CLOCK = 4;
 
   private final Random rndm = new Random();
 
@@ -144,7 +144,7 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
 
       int hand = hashtable.get(clockHand + STATUS);
 
-      if (evictable(hand) && ((hand & PRESENT_CLOCK) == 0)) {
+      if (evictable(hand & ~STATUS_KEY_HASHCODE_HI) && ((hand & PRESENT_CLOCK) == 0)) {
         return clockHand;
       } else if ((hand & PRESENT_CLOCK) == PRESENT_CLOCK) {
         hashtable.put(clockHand + STATUS, hand & ~PRESENT_CLOCK);
@@ -206,7 +206,7 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
 
         int hand = hashtable.get(clock + STATUS);
 
-        if (evictable(hand) && ((hand & PRESENT_CLOCK) == 0)) {
+        if (evictable(hand & ~STATUS_KEY_HASHCODE_HI) && ((hand & PRESENT_CLOCK) == 0)) {
           return clock;
         }
       }
@@ -219,7 +219,7 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
 
         int hand = hashtable.get(clock + STATUS);
 
-        if (evictable(hand)) {
+        if (evictable(hand & ~STATUS_KEY_HASHCODE_HI)) {
           lastEvictable = clock;
         }
       }
@@ -236,7 +236,7 @@ public abstract class AbstractOffHeapClockCache<K, V> extends AbstractLockedOffH
     Lock l = writeLock();
     l.lock();
     try {
-      if (evictable(hashtable.get(index + STATUS))) {
+      if (evictable(hashtable.get(index + STATUS) & ~STATUS_KEY_HASHCODE_HI)) {
         removeAtTableOffset(index, shrink);
         return true;
       } else {

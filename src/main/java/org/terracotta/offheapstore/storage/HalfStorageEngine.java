@@ -29,7 +29,7 @@ public interface HalfStorageEngine<T> {
    * @param hash the keys hash
    * @return encoded value
    */
-  Integer write(T object, int hash);
+  Integer write(T object, long hash);
 
   /**
    * Called to indicate that the associated encoded value is no longer needed.

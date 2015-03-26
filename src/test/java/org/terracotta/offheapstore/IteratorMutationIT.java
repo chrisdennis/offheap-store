@@ -30,6 +30,8 @@ import java.util.Iterator;
 
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
+import static org.junit.Assert.fail;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import org.terracotta.offheapstore.buffersource.HeapBufferSource;
@@ -45,6 +47,11 @@ import org.terracotta.offheapstore.storage.portability.SerializablePortability;
 
 public class IteratorMutationIT {
 
+  @BeforeClass
+  public static void fixThisTest() {
+    fail("This test needs some careful attention to ensure we preserve it's coverage... (I need to remember precisely what I was doing here)");
+  }
+  
   @Test
   public void testConcurrentUpdateDoesntMiss() {
     PageSource source = new UnlimitedPageSource(new HeapBufferSource());
@@ -176,7 +183,7 @@ public class IteratorMutationIT {
     public static final StorageEngine<Value, Value> INSTANCE = new SplitStorageEngine<IteratorMutationIT.Value, IteratorMutationIT.Value>(HALF_INSTANCE, HALF_INSTANCE);
         
     @Override
-    public Integer write(Value object, int hash) {
+    public Integer write(Value object, long hash) {
       return object.value;
     }
 

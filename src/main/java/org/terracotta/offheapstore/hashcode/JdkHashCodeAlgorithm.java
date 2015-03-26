@@ -13,13 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.terracotta.offheapstore;
+package org.terracotta.offheapstore.hashcode;
 
-public final class Metadata {
+/**
+ *
+ * @author cdennis
+ */
+public final class JdkHashCodeAlgorithm implements HashCodeAlgorithm {
 
-  public static final int PINNED = 8;
-
-  private Metadata() {
-    //static class
+  @Override
+  public long hash(Object obj) {
+    return obj.hashCode();
   }
 }

@@ -32,7 +32,11 @@ import org.terracotta.offheapstore.OffHeapHashMap;
 import org.terracotta.offheapstore.Segment;
 import org.terracotta.offheapstore.MapInternals;
 import org.terracotta.offheapstore.exceptions.OversizeMappingException;
+import org.terracotta.offheapstore.hashcode.HashCodeAlgorithm;
+import org.terracotta.offheapstore.hashcode.JdkHashCodeAlgorithm;
 import org.terracotta.offheapstore.util.Factory;
+
+import static java.lang.Long.rotateLeft;
 
 /**
  * An abstract concurrent (striped) off-heap map.
@@ -54,7 +58,8 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
   protected final Segment<K, V>[] segments;
   private final int segmentShift;
   private final int segmentMask;
-
+  private final HashCodeAlgorithm hashing = new JdkHashCodeAlgorithm();
+  
   private Set<K> keySet;
   private Set<Entry<K, V>> entrySet;
   private Collection<V> values;
@@ -93,7 +98,7 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
       ++sshift;
       ssize <<= 1;
     }
-    segmentShift = 32 - sshift;
+    segmentShift = Long.SIZE - sshift;
     segmentMask = ssize - 1;
     this.segments = new Segment[ssize];
 
@@ -112,15 +117,15 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
   }
 
   protected Segment<K, V> segmentFor(Object key) {
-    return segmentFor(key.hashCode());
+    return segmentFor(hashing.hash(key));
   }
 
-  protected Segment<K, V> segmentFor(int hash) {
-    return segments[getIndexFor(hash)];
+  protected Segment<K, V> segmentFor(long fullHash) {
+    return segments[getIndexFor(fullHash)];
   }
   
-  public int getIndexFor(int hash) {
-    return (spread(hash) >>> segmentShift) & segmentMask;
+  public int getIndexFor(long fullHash) {
+    return (int) ((spread(fullHash) >>> segmentShift) & segmentMask);
   }
   
   public List<Segment<K, V>> getSegments() {
@@ -131,14 +136,24 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
     return segments.length;
   }
 
-  private static int spread(int hash) {
-    int h = hash;
-    h += (h << 15) ^ 0xffffcd7d;
-    h ^= (h >>> 10);
-    h += (h << 3);
-    h ^= (h >>> 6);
-    h += (h << 2) + (h << 14);
-    return h ^ (h >>> 16);
+  private static long spread(long hash) {
+    return hashlittle2(hash, 0L);
+  }
+
+  private static long hashlittle2(long hash, long seed) {
+    int a = 0xdeadbeef + 8 + ((int) seed) + ((int) hash);
+    int b = 0xdeadbeef + 8 + ((int) seed) + ((int) (hash >>> Integer.SIZE));
+    int c = 0xdeadbeef + 8 + ((int) seed) + ((int) (seed >>> Integer.SIZE));
+
+    c ^= b; c -= rotateLeft(b, 14);
+    a ^= c; a -= rotateLeft(c,11);
+    b ^= a; b -= rotateLeft(a,25);
+    c ^= b; c -= rotateLeft(b,16);
+    a ^= c; a -= rotateLeft(c,4);
+    b ^= a; b -= rotateLeft(a,14);
+    c ^= b; c -= rotateLeft(b,24);
+    
+    return (0xffffffffL & c) | (((long) b) << Integer.SIZE);
   }
 
   @Override
@@ -191,7 +206,7 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
     try {
       return segmentFor(key).put(key, value);
     } catch (OversizeMappingException e) {
-      if (handleOversizeMappingException(key.hashCode())) {
+      if (handleOversizeMappingException(key)) {
         try {
           return segmentFor(key).put(key, value);
         } catch (OversizeMappingException ex) {
@@ -207,7 +222,7 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
           } catch (OversizeMappingException ex) {
             e = ex;
           }
-        } while (handleOversizeMappingException(key.hashCode()));
+        } while (handleOversizeMappingException(key));
         throw e;
       } finally {
         writeUnlockAll();
@@ -219,7 +234,7 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
     try {
       return segmentFor(key).put(key, value, metadata);
     } catch (OversizeMappingException e) {
-      if (handleOversizeMappingException(key.hashCode())) {
+      if (handleOversizeMappingException(key)) {
         try {
           return segmentFor(key).put(key, value, metadata);
         } catch (OversizeMappingException ex) {
@@ -235,7 +250,7 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
           } catch (OversizeMappingException ex) {
             e = ex;
           }
-        } while (handleOversizeMappingException(key.hashCode()));
+        } while (handleOversizeMappingException(key));
         throw e;
       } finally {
         writeUnlockAll();
@@ -309,7 +324,7 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
     try {
       return segmentFor(key).putIfAbsent(key, value);
     } catch (OversizeMappingException e) {
-      if (handleOversizeMappingException(key.hashCode())) {
+      if (handleOversizeMappingException(key)) {
         try {
           return segmentFor(key).putIfAbsent(key, value);
         } catch (OversizeMappingException ex) {
@@ -325,7 +340,7 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
           } catch (OversizeMappingException ex) {
             e = ex;
           }
-        } while (handleOversizeMappingException(key.hashCode()));
+        } while (handleOversizeMappingException(key));
         throw e;
       } finally {
         writeUnlockAll();
@@ -343,7 +358,7 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
     try {
       return segmentFor(key).replace(key, oldValue, newValue);
     } catch (OversizeMappingException e) {
-      if (handleOversizeMappingException(key.hashCode())) {
+      if (handleOversizeMappingException(key)) {
         try {
           return segmentFor(key).replace(key, oldValue, newValue);
         } catch (OversizeMappingException ex) {
@@ -359,7 +374,7 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
           } catch (OversizeMappingException ex) {
             e = ex;
           }
-        } while (handleOversizeMappingException(key.hashCode()));
+        } while (handleOversizeMappingException(key));
         throw e;
       } finally {
         writeUnlockAll();
@@ -372,7 +387,7 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
     try {
       return segmentFor(key).replace(key, value);
     } catch (OversizeMappingException e) {
-      if (handleOversizeMappingException(key.hashCode())) {
+      if (handleOversizeMappingException(key)) {
         try {
           return segmentFor(key).replace(key, value);
         } catch (OversizeMappingException ex) {
@@ -388,7 +403,7 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
           } catch (OversizeMappingException ex) {
             e = ex;
           }
-        } while (handleOversizeMappingException(key.hashCode()));
+        } while (handleOversizeMappingException(key));
         throw e;
       } finally {
         writeUnlockAll();
@@ -704,7 +719,11 @@ public abstract class AbstractConcurrentOffHeapMap<K, V> extends AbstractMap<K, 
     return sum;
   }
 
-  public final boolean handleOversizeMappingException(int hash) {
+  public final boolean handleOversizeMappingException(Object key) {
+    return handleOversizeMappingExceptionForHash(hashing.hash(key));
+  }
+
+  public final boolean handleOversizeMappingExceptionForHash(long hash) {
     boolean evicted = false;
 
     Segment<?, ?> target = segmentFor(hash);

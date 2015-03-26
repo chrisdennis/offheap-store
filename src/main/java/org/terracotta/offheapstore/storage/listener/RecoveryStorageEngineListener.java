@@ -24,5 +24,5 @@ import java.util.concurrent.Callable;
  */
 public interface RecoveryStorageEngineListener<K, V> extends StorageEngineListener<K, V> {
   
-  void recovered(Callable<? extends K> key, Callable<? extends V> value, ByteBuffer binaryKey, ByteBuffer binaryValue, int hash, int metadata, long encoding);
+  void recovered(Callable<? extends K> key, Callable<? extends V> value, ByteBuffer binaryKey, ByteBuffer binaryValue, long hash, int metadata, long encoding);
 }

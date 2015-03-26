@@ -67,7 +67,7 @@ public abstract class AbstractConcurrentOffHeapCache<K, V> extends AbstractConcu
     try {
       return segmentFor(key).putPinned(key, value);
     } catch (OversizeMappingException e) {
-      if (handleOversizeMappingException(key.hashCode())) {
+      if (handleOversizeMappingException(key)) {
         try {
           return segmentFor(key).putPinned(key, value);
         } catch (OversizeMappingException ex) {
@@ -83,7 +83,7 @@ public abstract class AbstractConcurrentOffHeapCache<K, V> extends AbstractConcu
           } catch (OversizeMappingException ex) {
             e = ex;
           }
-        } while (handleOversizeMappingException(key.hashCode()));
+        } while (handleOversizeMappingException(key));
         throw e;
       } finally {
         writeUnlockAll();

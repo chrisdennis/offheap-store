@@ -41,9 +41,9 @@ import static org.terracotta.offheapstore.util.ByteBufferUtils.totalLength;
 public class OffHeapBufferStorageEngine<K, V> extends PortabilityBasedStorageEngine<K, V> implements OffHeapStorageArea.Owner {
 
   private static final int KEY_HASH_OFFSET = 0;
-  private static final int KEY_LENGTH_OFFSET = 4;
-  private static final int VALUE_LENGTH_OFFSET = 8;
-  private static final int DATA_OFFSET = 12;
+  private static final int KEY_LENGTH_OFFSET = 8;
+  private static final int VALUE_LENGTH_OFFSET = 12;
+  private static final int DATA_OFFSET = 16;
   private static final int HEADER_SIZE = DATA_OFFSET;
 
   /*
@@ -196,13 +196,13 @@ public class OffHeapBufferStorageEngine<K, V> extends PortabilityBasedStorageEng
     };
   }
   @Override
-  protected Long writeMappingBuffers(ByteBuffer keyBuffer, ByteBuffer valueBuffer, int hash) {
+  protected Long writeMappingBuffers(ByteBuffer keyBuffer, ByteBuffer valueBuffer, long hash) {
     int keyLength = keyBuffer.remaining();
     int valueLength = valueBuffer.remaining();
     long address = storageArea.allocate(keyLength + valueLength + HEADER_SIZE);
 
     if (address >= 0) {
-      storageArea.writeInt(address + KEY_HASH_OFFSET, hash);
+      storageArea.writeLong(address + KEY_HASH_OFFSET, hash);
       storageArea.writeInt(address + KEY_LENGTH_OFFSET, keyLength);
       storageArea.writeInt(address + VALUE_LENGTH_OFFSET, valueLength);
       storageArea.writeBuffer(address + DATA_OFFSET, keyBuffer);
@@ -214,13 +214,13 @@ public class OffHeapBufferStorageEngine<K, V> extends PortabilityBasedStorageEng
   }
   
   @Override
-  protected Long writeMappingBuffersGathering(ByteBuffer[] keyBuffers, ByteBuffer[] valueBuffers, int hash) {
+  protected Long writeMappingBuffersGathering(ByteBuffer[] keyBuffers, ByteBuffer[] valueBuffers, long hash) {
     int keyLength = totalLength(keyBuffers);
     int valueLength = totalLength(valueBuffers);
     long address = storageArea.allocate(keyLength + valueLength + HEADER_SIZE);
 
     if (address >= 0) {
-      storageArea.writeInt(address + KEY_HASH_OFFSET, hash);
+      storageArea.writeLong(address + KEY_HASH_OFFSET, hash);
       storageArea.writeInt(address + KEY_LENGTH_OFFSET, keyLength);
       storageArea.writeInt(address + VALUE_LENGTH_OFFSET, valueLength);
       storageArea.writeBuffers(address + DATA_OFFSET, keyBuffers);
@@ -273,8 +273,7 @@ public class OffHeapBufferStorageEngine<K, V> extends PortabilityBasedStorageEng
 
   @Override
   public boolean evictAtAddress(long address, boolean shrink) {
-    int hash = storageArea.readInt(address + KEY_HASH_OFFSET);
-    int slot = owner.getSlotForHashAndEncoding(hash, address, ~0);
+    int slot = owner.getSlotForHashAndEncoding(readKeyHash(address), address, ~0);
     return owner.evict(slot, shrink);
   }
 
@@ -284,8 +283,8 @@ public class OffHeapBufferStorageEngine<K, V> extends PortabilityBasedStorageEng
   }
 
   @Override
-  public int readKeyHash(long encoding) {
-    return storageArea.readInt(encoding + KEY_HASH_OFFSET);
+  public long readKeyHash(long encoding) {
+    return storageArea.readLong(encoding + KEY_HASH_OFFSET);
   }
   
   @Override

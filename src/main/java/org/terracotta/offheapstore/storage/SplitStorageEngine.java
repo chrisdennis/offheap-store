@@ -53,7 +53,7 @@ public class SplitStorageEngine<K, V> implements StorageEngine<K, V> {
   }
   
   @Override
-  public Long writeMapping(K key, V value, int hash, int metadata) {
+  public Long writeMapping(K key, V value, long hash, int metadata) {
     Integer keyEncoding = keyStorageEngine.write(key, hash);
     if (keyEncoding == null) {
       return null;
@@ -69,12 +69,12 @@ public class SplitStorageEngine<K, V> implements StorageEngine<K, V> {
   }
 
   @Override
-  public void attachedMapping(long encoding, int hash, int metadata) {
+  public void attachedMapping(long encoding, long hash, int metadata) {
     //no-op
   }
   
   @Override
-  public void freeMapping(long encoding, int hash, boolean removal) {
+  public void freeMapping(long encoding, long hash, boolean removal) {
     keyStorageEngine.free(keyEncoding(encoding));
     valueStorageEngine.free(valueEncoding(encoding));
   }
@@ -92,7 +92,7 @@ public class SplitStorageEngine<K, V> implements StorageEngine<K, V> {
 
   @SuppressWarnings("unchecked")
   @Override
-  public K readKey(long encoding, int hashCode) {
+  public K readKey(long encoding, long hashCode) {
     return (K) keyStorageEngine.read(keyEncoding(encoding));
   }
 

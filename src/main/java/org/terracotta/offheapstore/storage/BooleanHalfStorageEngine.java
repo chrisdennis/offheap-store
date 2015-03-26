@@ -30,7 +30,7 @@ public final class BooleanHalfStorageEngine implements HalfStorageEngine<Boolean
   }
   
   @Override
-  public Integer write(Boolean object, int hash) {
+  public Integer write(Boolean object, long hash) {
     return object ? 1 : 0;
   }
 

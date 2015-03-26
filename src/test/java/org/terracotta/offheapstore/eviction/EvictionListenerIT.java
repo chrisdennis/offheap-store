@@ -123,7 +123,7 @@ public class EvictionListenerIT {
   @Test
   public void testEvictionListenerSeesStealingEventsReadWriteLocked() {
     MonitoringEvictionListener listener = new MonitoringEvictionListener();
-    PageSource source = new UpfrontAllocatingPageSource(new OffHeapBufferSource(), 16 * 4096, 16 * 4096);
+    PageSource source = new UpfrontAllocatingPageSource(new OffHeapBufferSource(), 20 * 4096, 20 * 4096);
     Map<Long, String> victim = new ConcurrentOffHeapClockCache<Long, String>(source, LongStorageEngine.createFactory(OffHeapBufferHalfStorageEngine.createFactory(source, 128, StringPortability.INSTANCE, false, true)), listener);
 
     long i = 0;
@@ -154,7 +154,7 @@ public class EvictionListenerIT {
   @Test
   public void testEvictionListenerSeesStealingEventsWriteLocked() {
     MonitoringEvictionListener listener = new MonitoringEvictionListener();
-    PageSource source = new UpfrontAllocatingPageSource(new OffHeapBufferSource(), 16 * 4096, 16 * 4096);
+    PageSource source = new UpfrontAllocatingPageSource(new OffHeapBufferSource(), 20 * 4096, 20 * 4096);
     Map<Long, String> victim = new ConcurrentWriteLockedOffHeapClockCache<Long, String>(source, LongStorageEngine.createFactory(OffHeapBufferHalfStorageEngine.createFactory(source, 128, StringPortability.INSTANCE, false, true)), listener);
 
     long i = 0;

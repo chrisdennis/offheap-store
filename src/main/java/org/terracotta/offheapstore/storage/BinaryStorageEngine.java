@@ -23,7 +23,7 @@ import java.nio.ByteBuffer;
  */
 public interface BinaryStorageEngine {
   
-  int readKeyHash(long encoding);
+  long readKeyHash(long encoding);
 
   ByteBuffer readBinaryKey(long encoding);
   
@@ -31,7 +31,7 @@ public interface BinaryStorageEngine {
   
   boolean equalsBinaryKey(ByteBuffer probeKey, long encoding);
 
-  Long writeBinaryMapping(ByteBuffer binaryKey, ByteBuffer binaryValue, int pojoHash, int metadata);
+  Long writeBinaryMapping(ByteBuffer binaryKey, ByteBuffer binaryValue, long pojoHash, int metadata);
   
-  Long writeBinaryMapping(ByteBuffer[] binaryKey, ByteBuffer[] binaryValue, int pojoHash, int metadata);
+  Long writeBinaryMapping(ByteBuffer[] binaryKey, ByteBuffer[] binaryValue, long pojoHash, int metadata);
 }

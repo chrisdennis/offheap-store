@@ -43,7 +43,7 @@ public class LongStorageEngine<V> implements StorageEngine<Long, V> {
   }
 
   @Override
-  public Long writeMapping(Long key, V value, int hash, int metadata) {
+  public Long writeMapping(Long key, V value, long hash, int metadata) {
     Integer valueEncoding = valueStorage.write(value, hash);
     if (valueEncoding == null) {
       return null;
@@ -53,12 +53,12 @@ public class LongStorageEngine<V> implements StorageEngine<Long, V> {
   }
 
   @Override
-  public void attachedMapping(long encoding, int hash, int metadata) {
+  public void attachedMapping(long encoding, long hash, int metadata) {
     //no-op
   }
   
   @Override
-  public void freeMapping(long encoding, int hash, boolean removal) {
+  public void freeMapping(long encoding, long hash, boolean removal) {
     valueStorage.free(SplitStorageEngine.valueEncoding(encoding));
   }
 
@@ -73,7 +73,7 @@ public class LongStorageEngine<V> implements StorageEngine<Long, V> {
   }
 
   @Override
-  public Long readKey(long encoding, int hashCode) {
+  public Long readKey(long encoding, long hashCode) {
     int keyEncoding = SplitStorageEngine.keyEncoding(encoding);
     return (((long) (hashCode ^ keyEncoding)) << 32) | (keyEncoding & 0xffffffffL);
   }

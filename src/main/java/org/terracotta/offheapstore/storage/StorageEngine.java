@@ -42,9 +42,9 @@ public interface StorageEngine<K, V> {
    * @param metadata the metadata bits
    * @return the encoded mapping
    */
-  Long writeMapping(K key, V value, int hash, int metadata);
+  Long writeMapping(K key, V value, long hash, int metadata);
 
-  void attachedMapping(long encoding, int hash, int metadata);
+  void attachedMapping(long encoding, long hash, int metadata);
   
   /**
    * Called to indicate that the associated encoded value is no longer needed.
@@ -56,7 +56,7 @@ public interface StorageEngine<K, V> {
    * @param hash hash of the freed mapping
    * @param removal marks removal from a map
    */
-  void freeMapping(long encoding, int hash, boolean removal);
+  void freeMapping(long encoding, long hash, boolean removal);
   
   /**
    * Converts the supplied encoded value into its correct object form.
@@ -88,7 +88,7 @@ public interface StorageEngine<K, V> {
    * @param hashCode hash-code of the decoded key
    * @return a decoded key object
    */
-  K readKey(long encoding, int hashCode);
+  K readKey(long encoding, long hashCode);
   
   /**
    * Called to determine the equality of the given object against the
@@ -155,17 +155,17 @@ public interface StorageEngine<K, V> {
 
   public interface Owner extends ReadWriteLock {
 
-    public Long getEncodingForHashAndBinary(int hash, ByteBuffer offHeapBinaryKey);
+    public Long getEncodingForHashAndBinary(long hash, ByteBuffer offHeapBinaryKey);
 
     public long getSize();
 
-    public long installMappingForHashAndEncoding(int pojoHash, ByteBuffer offheapBinaryKey, ByteBuffer offheapBinaryValue, int metadata);
+    public long installMappingForHashAndEncoding(long pojoHash, ByteBuffer offheapBinaryKey, ByteBuffer offheapBinaryValue, int metadata);
 
     public Iterable<Long> encodingSet();
 
-    public boolean updateEncoding(int hashCode, long lastAddress, long compressed, long mask);
+    public boolean updateEncoding(long hashCode, long lastAddress, long compressed, long mask);
 
-    public Integer getSlotForHashAndEncoding(int hash, long address, long mask);
+    public Integer getSlotForHashAndEncoding(long hash, long address, long mask);
 
     public boolean evict(int slot, boolean b);
 

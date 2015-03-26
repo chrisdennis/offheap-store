@@ -102,7 +102,7 @@ public abstract class AbstractLockedOffHeapHashMap<K, V> extends OffHeapHashMap<
   }
 
   @Override
-  public Long getEncodingForHashAndBinary(int hash, ByteBuffer binaryKey) {
+  public Long getEncodingForHashAndBinary(long hash, ByteBuffer binaryKey) {
     Lock l = readLock();
     l.lock();
     try {
@@ -113,7 +113,7 @@ public abstract class AbstractLockedOffHeapHashMap<K, V> extends OffHeapHashMap<
   }
   
   @Override
-  public long installMappingForHashAndEncoding(int pojoHash, ByteBuffer offheapBinaryKey, ByteBuffer offheapBinaryValue, int metadata) {
+  public long installMappingForHashAndEncoding(long pojoHash, ByteBuffer offheapBinaryKey, ByteBuffer offheapBinaryValue, int metadata) {
     Lock l = writeLock();
     l.lock();
     try {

@@ -32,8 +32,8 @@ import org.terracotta.offheapstore.util.Factory;
 public class OffHeapBufferHalfStorageEngine<T> extends PortabilityBasedHalfStorageEngine<T> implements OffHeapStorageArea.Owner {
 
   private static final int KEY_HASH_OFFSET = 0;
-  private static final int LENGTH_OFFSET = 4;
-  private static final int DATA_OFFSET = 8;
+  private static final int LENGTH_OFFSET = 8;
+  private static final int DATA_OFFSET = 12;
   private static final int HEADER_LENGTH = DATA_OFFSET;
 
   public static <T> Factory<OffHeapBufferHalfStorageEngine<T>> createFactory(final PageSource source, final int pageSize, final Portability<? super T> portability) {
@@ -87,12 +87,12 @@ public class OffHeapBufferHalfStorageEngine<T> extends PortabilityBasedHalfStora
   }
 
   @Override
-  protected Integer writeBuffer(ByteBuffer buffer, int hash) {
+  protected Integer writeBuffer(ByteBuffer buffer, long hash) {
     int length = buffer.remaining();
     int address = (int) storageArea.allocate(length + HEADER_LENGTH);
 
     if (address >= 0) {
-      storageArea.writeInt(address + KEY_HASH_OFFSET, hash);
+      storageArea.writeLong(address + KEY_HASH_OFFSET, hash);
       storageArea.writeInt(address + LENGTH_OFFSET, length);
       storageArea.writeBuffer(address + DATA_OFFSET, buffer);
       return address;
@@ -152,7 +152,7 @@ public class OffHeapBufferHalfStorageEngine<T> extends PortabilityBasedHalfStora
 
   @Override
   public boolean evictAtAddress(long address, boolean shrink) {
-    int hash = storageArea.readInt(address + KEY_HASH_OFFSET);
+    long hash = storageArea.readLong(address + KEY_HASH_OFFSET);
     int slot = owner.getSlotForHashAndEncoding(hash, address, mask);
     return owner.evict(slot, shrink);
   }
@@ -169,7 +169,7 @@ public class OffHeapBufferHalfStorageEngine<T> extends PortabilityBasedHalfStora
 
   @Override
   public boolean moved(long from, long to) {
-    int hash = storageArea.readInt(to + KEY_HASH_OFFSET);
+    long hash = storageArea.readLong(to + KEY_HASH_OFFSET);
     return owner.updateEncoding(hash, from, to, mask);
   }
 

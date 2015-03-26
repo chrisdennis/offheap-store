@@ -15,7 +15,6 @@
  */
 package org.terracotta.offheapstore;
 
-import org.terracotta.offheapstore.OffHeapHashMap;
 import static org.junit.Assert.fail;
 
 import java.nio.ByteBuffer;
@@ -91,9 +90,9 @@ public class OffHeapHashMapIT extends AbstractOffHeapMapIT {
     StringStorageEngine storageEngine = new StringStorageEngine(PointerSize.INT, pageSource, 64);
     storageEngine.registerListener(new RuntimeStorageEngineListener<String, String>() {
       @Override public void cleared() { }
-      @Override public void copied(int hash, long oldEncoding, long newEncoding, int metadata) { }
-      @Override public void freed(long encoding, int hash, ByteBuffer key, boolean removed) { encodings.remove(encoding); }
-      @Override public void written(String key, String value, ByteBuffer binaryKey, ByteBuffer binaryValue, int hash, int metadata, long encoding) { encodings.add(encoding); };
+      @Override public void copied(long hash, long oldEncoding, long newEncoding, int metadata) { }
+      @Override public void freed(long encoding, long hash, ByteBuffer key, boolean removed) { encodings.remove(encoding); }
+      @Override public void written(String key, String value, ByteBuffer binaryKey, ByteBuffer binaryValue, long hash, int metadata, long encoding) { encodings.add(encoding); };
     });
 
     OffHeapHashMap<String, String> map = new OffHeapHashMap<String, String>(pageSource, storageEngine);

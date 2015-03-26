@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.terracotta.offheapstore;
+package org.terracotta.offheapstore.hashcode;
 
-public final class Metadata {
-
-  public static final int PINNED = 8;
-
-  private Metadata() {
-    //static class
-  }
+/**
+ *
+ * @author cdennis
+ */
+public interface HashCodeAlgorithm {
+  
+  long hash(Object obj);
 }

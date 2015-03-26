@@ -36,6 +36,7 @@ import org.junit.Test;
 import org.terracotta.offheapstore.Metadata;
 import org.terracotta.offheapstore.OffHeapHashMap;
 import org.terracotta.offheapstore.buffersource.HeapBufferSource;
+import org.terracotta.offheapstore.hashcode.JdkHashCodeAlgorithm;
 import org.terracotta.offheapstore.paging.UnlimitedPageSource;
 import org.terracotta.offheapstore.storage.StorageEngine;
 
@@ -106,18 +107,18 @@ public abstract class AbstractListenerIT {
     private final Set<Long> pinnedEncodings = new HashSet<Long>();
 
     @Override
-    public void written(K key, V value, ByteBuffer binaryKey, ByteBuffer binaryValue, int hash, int metadata,
+    public void written(K key, V value, ByteBuffer binaryKey, ByteBuffer binaryValue, long hash, int metadata,
                         long encoding) {
-      Assert.assertThat(key.hashCode(), Is.is(hash));
+      Assert.assertThat(new JdkHashCodeAlgorithm().hash(key), Is.is(hash));
       Entry<K, V> previous = trackingMap.put(encoding, new SimpleEntry<K, V>(key, value));
       Assert.assertThat(previous, IsNull.nullValue());
     }
 
     @Override
-    public void freed(long encoding, int hash, ByteBuffer key, boolean removed) {
+    public void freed(long encoding, long hash, ByteBuffer key, boolean removed) {
       Entry<K, V> previous = trackingMap.remove(encoding);
       Assert.assertThat(previous, IsNull.notNullValue());
-      Assert.assertThat(previous.getKey().hashCode(), Is.is(hash));
+      Assert.assertThat(new JdkHashCodeAlgorithm().hash(previous.getKey()), Is.is(hash));
     }
 
     @Override
@@ -126,10 +127,10 @@ public abstract class AbstractListenerIT {
     }
 
     @Override
-    public void copied(int hash, long oldEncoding, long newEncoding, int metadata) {
+    public void copied(long hash, long oldEncoding, long newEncoding, int metadata) {
       Entry<K, V> mapping = trackingMap.get(oldEncoding);
       Assert.assertThat(mapping, IsNull.notNullValue());
-      Assert.assertThat(mapping.getKey().hashCode(), Is.is(hash));
+      Assert.assertThat(new JdkHashCodeAlgorithm().hash(mapping.getKey()), Is.is(hash));
       Entry<K, V> previous = trackingMap.put(newEncoding, mapping);
       Assert.assertThat(previous, IsNull.nullValue());
       if ((Metadata.PINNED & metadata) == 0) {
@@ -150,7 +151,7 @@ public abstract class AbstractListenerIT {
     }
 
     @Override
-    public void recovered(Callable<? extends K> key, Callable<? extends V> value, ByteBuffer binaryKey, ByteBuffer binaryValue, int hash, int metadata, long encoding) {
+    public void recovered(Callable<? extends K> key, Callable<? extends V> value, ByteBuffer binaryKey, ByteBuffer binaryValue, long hash, int metadata, long encoding) {
       try {
         written(key.call(), value.call(), binaryKey, binaryValue, hash, metadata, encoding);
       } catch (Exception ex) {

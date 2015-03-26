@@ -20,11 +20,11 @@ import java.nio.ByteBuffer;
 
 public interface RuntimeStorageEngineListener<K, V> extends StorageEngineListener<K, V> {
 
-  void written(K key, V value, ByteBuffer binaryKey, ByteBuffer binaryValue, int hash, int metadata, long encoding);
+  void written(K key, V value, ByteBuffer binaryKey, ByteBuffer binaryValue, long hash, int metadata, long encoding);
   
-  void freed(long encoding, int hash, ByteBuffer binaryKey, boolean removed);
+  void freed(long encoding, long hash, ByteBuffer binaryKey, boolean removed);
 
   void cleared();
 
-  void copied(int hash, long oldEncoding, long newEncoding, int metadata);
+  void copied(long hash, long oldEncoding, long newEncoding, int metadata);
 }

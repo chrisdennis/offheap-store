@@ -34,7 +34,7 @@ public abstract class PortabilityBasedHalfStorageEngine<T> implements HalfStorag
   }
 
   @Override
-  public Integer write(T object, int hash) {
+  public Integer write(T object, long hash) {
     if (lastObject != null && lastObject.get() == object) {
       return writeBuffer(lastObject.getEncoded(), hash);
     } else {
@@ -63,7 +63,7 @@ public abstract class PortabilityBasedHalfStorageEngine<T> implements HalfStorag
 
   protected abstract ByteBuffer readBuffer(int encoding);
 
-  protected abstract Integer writeBuffer(ByteBuffer buffer, int hash);
+  protected abstract Integer writeBuffer(ByteBuffer buffer, long hash);
 
   @Override
   public void invalidateCache() {
