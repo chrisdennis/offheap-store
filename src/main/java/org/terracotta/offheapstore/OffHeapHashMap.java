@@ -23,6 +23,9 @@ import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
+import static java.util.Optional.empty;
+import static java.util.Optional.of;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -41,6 +44,8 @@ import org.terracotta.offheapstore.util.WeakIdentityHashMap;
 import org.terracotta.offheapstore.util.WeakIdentityHashMap.ReaperTask;
 
 import java.util.concurrent.locks.Lock;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * A hash-table implementation whose table is stored in an NIO direct buffer.
@@ -225,71 +230,24 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
   @Override
   public boolean containsKey(Object key) {
-    int hash = key.hashCode();
-
-    if (size == 0) {
-      return false;
-    }
-    
-    IntBuffer view = (IntBuffer) hashtable.duplicate().position(indexFor(spread(hash)));
-
-    int limit = reprobeLimit();
-
-    for (int i = 0; i < limit; i++) {
-      if (!view.hasRemaining()) {
-        view.rewind();
-      }
-
-      IntBuffer entry = (IntBuffer) view.slice().limit(ENTRY_SIZE);
-
-      if (isTerminating(entry)) {
-        return false;
-      } else if (isPresent(entry) && keyEquals(key, hash, readLong(entry, ENCODING), entry.get(KEY_HASHCODE))) {
-        hit(entry);
-        return true;
-      } else {
-        view.position(view.position() + ENTRY_SIZE);
-      }
-    }
-    return false;
+    return read(key.hashCode(), keyEquality(key), Optional::isPresent);
   }
 
   @SuppressWarnings("unchecked")
   @Override
   public V get(Object key) {
-    int hash = key.hashCode();
-
-    if (size == 0) {
-      return null;
-    }
-    
-    IntBuffer view = (IntBuffer) hashtable.duplicate().position(indexFor(spread(hash)));
-
-    int limit = reprobeLimit();
-
-    for (int i = 0; i < limit; i++) {
-      if (!view.hasRemaining()) {
-        view.rewind();
-      }
-
-      IntBuffer entry = (IntBuffer) view.slice().limit(ENTRY_SIZE);
-
-      if (isTerminating(entry)) {
-        return null;
-      } else if (isPresent(entry) && keyEquals(key, hash, readLong(entry, ENCODING), entry.get(KEY_HASHCODE))) {
-        hit(entry);
-        return (V) storageEngine.readValue(readLong(entry, ENCODING));
-      } else {
-        view.position(view.position() + ENTRY_SIZE);
-      }
-    }
-    return null;
+    return read(key.hashCode(), keyEquality(key), oe -> oe.map(e -> (V) storageEngine.readValue(readLong(e, ENCODING))).orElse(null));
   }
 
   @Override
   public Long getEncodingForHashAndBinary(int hash, ByteBuffer binaryKey) {
+    return read(hash, binaryKeyEquality(binaryKey, hash), entry -> entry.map(e -> readLong(e, ENCODING)).orElse(null));
+  }
+  
+  @SuppressWarnings("unchecked")
+  private <T> T read(int hash, Predicate<IntBuffer> slotCheck, Function<Optional<IntBuffer>, T> outputTransform) {
     if (size == 0) {
-      return null;
+      return outputTransform.apply(empty());
     }
     
     IntBuffer view = (IntBuffer) hashtable.duplicate().position(indexFor(spread(hash)));
@@ -304,14 +262,15 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
       IntBuffer entry = (IntBuffer) view.slice().limit(ENTRY_SIZE);
 
       if (isTerminating(entry)) {
-        return null;
-      } else if (isPresent(entry) && binaryKeyEquals(binaryKey, hash, readLong(entry, ENCODING), entry.get(KEY_HASHCODE))) {
-        return readLong(entry, ENCODING);
+        return outputTransform.apply(empty());
+      } else if (isPresent(entry) && slotCheck.test(entry)) {
+        hit(entry);
+        return outputTransform.apply(of(entry));
       } else {
         view.position(view.position() + ENTRY_SIZE);
       }
     }
-    return null;
+    return outputTransform.apply(empty());
   }
   
   @Override
@@ -355,34 +314,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   }
 
   public Integer getMetadata(Object key, int mask) {
-    int safeMask = mask & ~RESERVED_STATUS_BITS;
-    
-    freePendingTables();
-
-    int hash = key.hashCode();
-
-    hashtable.position(indexFor(spread(hash)));
-
-    int limit = reprobeLimit();
-
-    for (int i = 0; i < limit; i++) {
-      if (!hashtable.hasRemaining()) {
-        hashtable.rewind();
-      }
-
-      IntBuffer entry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
-
-      long encoding = readLong(entry, ENCODING);
-      if (isTerminating(entry)) {
-        return null;
-      } else if (isPresent(entry) && keyEquals(key, hash, encoding, entry.get(KEY_HASHCODE))) {
-        return entry.get(STATUS) & safeMask;
-      } else {
-        hashtable.position(hashtable.position() + ENTRY_SIZE);
-      }
-    }
-
-    return null;
+    return read(key.hashCode(), keyEquality(key), oe -> oe.map(e -> e.get(STATUS) & mask & ~RESERVED_STATUS_BITS).orElse(null));
   }
 
   public Integer getAndSetMetadata(Object key, int mask, int values) {
@@ -942,10 +874,23 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     return (hash << ENTRY_BIT_SHIFT) & Math.max(0, table.capacity() - 1);
   }
 
+  private Predicate<IntBuffer> keyEquality(Object key) {
+    int hash = key.hashCode();
+    return entry -> keyEquals(key, hash, readLong(entry, ENCODING), entry.get(KEY_HASHCODE));
+  }
+  
   private boolean keyEquals(Object probeKey, int probeHash, long targetEncoding, int targetHash) {
     return probeHash == targetHash && storageEngine.equalsKey(probeKey, targetEncoding);
   }
 
+  private Predicate<IntBuffer> binaryKeyEquality(ByteBuffer binaryKey, int hash) {
+    if (storageEngine instanceof BinaryStorageEngine) {
+      return entry -> binaryKeyEquals(binaryKey, hash, readLong(entry, ENCODING), entry.get(KEY_HASHCODE));
+    } else {
+      throw new UnsupportedOperationException("Cannot check binary quality unless configured with a BinaryStorageEngine");
+    }
+  }
+  
   private boolean binaryKeyEquals(ByteBuffer binaryProbeKey, int probeHash, long targetEncoding, int targetHash) {
     if (storageEngine instanceof BinaryStorageEngine) {
       return probeHash == targetHash && ((BinaryStorageEngine) storageEngine).equalsBinaryKey(binaryProbeKey, targetEncoding);
