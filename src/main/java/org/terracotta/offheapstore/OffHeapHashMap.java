@@ -229,23 +229,23 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   }
 
   @Override
-  public boolean containsKey(Object key) {
+  public final boolean containsKey(Object key) {
     return read(key.hashCode(), keyEquality(key), Optional::isPresent);
   }
 
   @SuppressWarnings("unchecked")
   @Override
-  public V get(Object key) {
+  public final V get(Object key) {
     return read(key.hashCode(), keyEquality(key), oe -> oe.map(e -> (V) storageEngine.readValue(readLong(e, ENCODING))).orElse(null));
   }
 
   @Override
-  public Long getEncodingForHashAndBinary(int hash, ByteBuffer binaryKey) {
+  public final Long getEncodingForHashAndBinary(int hash, ByteBuffer binaryKey) {
     return read(hash, binaryKeyEquality(binaryKey, hash), entry -> entry.map(e -> readLong(e, ENCODING)).orElse(null));
   }
   
   @SuppressWarnings("unchecked")
-  private <T> T read(int hash, Predicate<IntBuffer> slotCheck, Function<Optional<IntBuffer>, T> outputTransform) {
+  protected <T> T read(int hash, Predicate<IntBuffer> slotCheck, Function<Optional<IntBuffer>, T> outputTransform) {
     if (size == 0) {
       return outputTransform.apply(empty());
     }
@@ -673,15 +673,15 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   }
 
   @Override
-  public V remove(Object key) {
+  public final V remove(Object key) {
     return remove(key.hashCode(), keyEquality(key), oe -> oe.map(e -> (V) storageEngine.readValue(readLong(e, ENCODING))).orElse(null));
   }
 
-  public boolean removeNoReturn(Object key) {
+  public final boolean removeNoReturn(Object key) {
     return remove(key.hashCode(), keyEquality(key), Optional::isPresent);
   }
   
-  private <T> T remove(int hash, Predicate<IntBuffer> slotCheck, Function<Optional<IntBuffer>, T> output) {
+  protected <T> T remove(int hash, Predicate<IntBuffer> slotCheck, Function<Optional<IntBuffer>, T> output) {
     freePendingTables();
 
     if (size == 0) {
@@ -835,9 +835,13 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     return (hash << ENTRY_BIT_SHIFT) & Math.max(0, table.capacity() - 1);
   }
 
-  private Predicate<IntBuffer> keyEquality(Object key) {
+  protected final Predicate<IntBuffer> keyEquality(Object key) {
     int hash = key.hashCode();
     return entry -> keyEquals(key, hash, readLong(entry, ENCODING), entry.get(KEY_HASHCODE));
+  }
+  
+  protected final Predicate<IntBuffer> valueEquality(Object value) {
+    return entry -> storageEngine.equalsValue(value, readLong(entry, ENCODING));
   }
   
   private boolean keyEquals(Object probeKey, int probeHash, long targetEncoding, int targetHash) {
@@ -1438,43 +1442,13 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
    * remove used by EntrySet
    */
   @SuppressWarnings("unchecked")
-  protected boolean removeMapping(Object o) {
-    freePendingTables();
-
-    if (!(o instanceof Entry<?, ?>)) {
+  protected final boolean removeMapping(Object o) {
+    if (o instanceof Entry<?, ?>) {
+      Entry<K, V> e = (Entry<K, V>) o;
+      return remove(e.getKey(), e.getValue());
+    } else {
       return false;
     }
-
-    Entry<K, V> e = (Entry<K, V>) o;
-
-    Object key = e.getKey();
-    int hash = key.hashCode();
-
-    hashtable.position(indexFor(spread(hash)));
-
-    for (int i = 0; i < reprobeLimit(); i++) {
-      if (!hashtable.hasRemaining()) {
-        hashtable.rewind();
-      }
-
-      IntBuffer entry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
-
-      if (isTerminating(entry)) {
-        return false;
-      } else if (isPresent(entry) && keyEquals(key, hash, readLong(entry, ENCODING), entry.get(KEY_HASHCODE))
-          && storageEngine.equalsValue(e.getValue(), readLong(entry, ENCODING))) {
-        storageEngine.freeMapping(readLong(entry, ENCODING), entry.get(KEY_HASHCODE), true);
-
-        entry.put(STATUS_REMOVED);
-        slotRemoved(entry);
-        shrink();
-        return true;
-      } else {
-        hashtable.position(hashtable.position() + ENTRY_SIZE);
-      }
-    }
-
-    return false;
   }
 
   @Override

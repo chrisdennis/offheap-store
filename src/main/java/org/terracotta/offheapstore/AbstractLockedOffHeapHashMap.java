@@ -16,12 +16,16 @@
 package org.terracotta.offheapstore;
 
 import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.util.AbstractCollection;
 import java.util.AbstractSet;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 import org.terracotta.offheapstore.paging.PageSource;
 import org.terracotta.offheapstore.storage.StorageEngine;
@@ -80,33 +84,11 @@ public abstract class AbstractLockedOffHeapHashMap<K, V> extends OffHeapHashMap<
   }
 
   @Override
-  public boolean containsKey(Object key) {
+  protected <T> T read(int hash, Predicate<IntBuffer> slotCheck, Function<Optional<IntBuffer>, T> outputTransform) {
     Lock l = readLock();
     l.lock();
     try {
-      return super.containsKey(key);
-    } finally {
-      l.unlock();
-    }
-  }
-
-  @Override
-  public V get(Object key) {
-    Lock l = readLock();
-    l.lock();
-    try {
-      return super.get(key);
-    } finally {
-      l.unlock();
-    }
-  }
-
-  @Override
-  public Long getEncodingForHashAndBinary(int hash, ByteBuffer binaryKey) {
-    Lock l = readLock();
-    l.lock();
-    try {
-      return super.getEncodingForHashAndBinary(hash, binaryKey);
+      return super.read(hash, slotCheck, outputTransform);
     } finally {
       l.unlock();
     }
@@ -166,28 +148,18 @@ public abstract class AbstractLockedOffHeapHashMap<K, V> extends OffHeapHashMap<
       l.unlock();
     }
   }
-  
+
   @Override
-  public V remove(Object key) {
+  protected <T> T remove(int hash, Predicate<IntBuffer> slotCheck, Function<Optional<IntBuffer>, T> output) {
     Lock l = writeLock();
     l.lock();
     try {
-      return super.remove(key);
+      return super.remove(hash, slotCheck, output);
     } finally {
       l.unlock();
     }
   }
 
-  @Override
-  public boolean removeNoReturn(Object key) {
-    Lock l = writeLock();
-    l.lock();
-    try {
-      return super.removeNoReturn(key);
-    } finally {
-      l.unlock();
-    }
-  }
   
   @Override
   public void clear() {
@@ -219,26 +191,8 @@ public abstract class AbstractLockedOffHeapHashMap<K, V> extends OffHeapHashMap<
   }
 
   @Override
-  public boolean remove(Object key, Object value) {
-    Lock l = writeLock();
-    l.lock();
-    try {
-      if (key == null) {
-        throw new NullPointerException();
-      }
-      if (value == null) {
-        return false;
-      }
-      V existing = get(key);
-      if (value.equals(existing)) {
-        remove(key);
-        return true;
-      } else {
-        return false;
-      }
-    } finally {
-      l.unlock();
-    }
+  public final boolean remove(Object key, Object value) {
+    return remove(key.hashCode(), keyEquality(key).and(valueEquality(value)), Optional::isPresent);
   }
 
   @Override
@@ -304,20 +258,6 @@ public abstract class AbstractLockedOffHeapHashMap<K, V> extends OffHeapHashMap<
     l.lock();
     try {
       return super.getValueAndSetMetadata(key, mask, values);
-    } finally {
-      l.unlock();
-    }
-  }
-
-  /*
-   * remove used by EntrySet
-   */
-  @Override
-  protected boolean removeMapping(Object o) {
-    Lock l = writeLock();
-    l.lock();
-    try {
-      return super.removeMapping(o);
     } finally {
       l.unlock();
     }
