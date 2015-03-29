@@ -287,7 +287,7 @@ public abstract class AbstractLockedOffHeapHashMap<K, V> extends OffHeapHashMap<
       Lock l = readLock();
       l.lock();
       try {
-        return new LockedEntryIterator();
+        return new LockedHashIterator<>(DirectEntry::new);
       } finally {
         l.unlock();
       }
@@ -326,10 +326,14 @@ public abstract class AbstractLockedOffHeapHashMap<K, V> extends OffHeapHashMap<
     }
   }
 
-  class LockedEntryIterator extends EntryIterator {
+  class LockedHashIterator<T> extends HashIterator<T> {
+
+    public LockedHashIterator(Function<IntBuffer, T> create) {
+      super(create);
+    }
 
     @Override
-    public Entry<K, V> next() {
+    public T next() {
       Lock l = readLock();
       l.lock();
       try {
@@ -371,7 +375,7 @@ public abstract class AbstractLockedOffHeapHashMap<K, V> extends OffHeapHashMap<
       Lock l = readLock();
       l.lock();
       try {
-        return new LockedKeyIterator();
+        return new LockedHashIterator(keyReader());
       } finally {
         l.unlock();
       }
@@ -398,36 +402,6 @@ public abstract class AbstractLockedOffHeapHashMap<K, V> extends OffHeapHashMap<
     }
   }
 
-  class LockedKeyIterator extends KeyIterator {
-
-    @Override
-    public K next() {
-      Lock l = readLock();
-      l.lock();
-      try {
-        return super.next();
-      } finally {
-        l.unlock();
-      }
-    }
-
-    @Override
-    public void remove() {
-      Lock l = writeLock();
-      l.lock();
-      try {
-        super.remove();
-      } finally {
-        l.unlock();
-      }
-    }
-
-    @Override
-    protected void checkForConcurrentModification() {
-      //no-op
-    }
-  }
-  
   @Override
   public Collection<V> values() {
     if (values == null) {

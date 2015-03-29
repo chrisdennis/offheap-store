@@ -44,6 +44,7 @@ import org.terracotta.offheapstore.util.WeakIdentityHashMap;
 import org.terracotta.offheapstore.util.WeakIdentityHashMap.ReaperTask;
 
 import java.util.concurrent.locks.Lock;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -236,7 +237,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   @SuppressWarnings("unchecked")
   @Override
   public final V get(Object key) {
-    return read(key.hashCode(), keyEquality(key), oe -> oe.map(e -> (V) storageEngine.readValue(readLong(e, ENCODING))).orElse(null));
+    return read(key.hashCode(), keyEquality(key), oe -> oe.map(valueReader()).orElse(null));
   }
 
   @Override
@@ -840,8 +841,16 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     return entry -> keyEquals(key, hash, readLong(entry, ENCODING), entry.get(KEY_HASHCODE));
   }
   
+  protected final Function<IntBuffer, K> keyReader() {
+    return entry -> (K) storageEngine.readKey(readLong(entry, ENCODING), entry.get(KEY_HASHCODE));
+  }
+  
   protected final Predicate<IntBuffer> valueEquality(Object value) {
     return entry -> storageEngine.equalsValue(value, readLong(entry, ENCODING));
+  }
+  
+  protected final Function<IntBuffer, V> valueReader() {
+    return entry -> (V) storageEngine.readValue(readLong(entry, ENCODING));
   }
   
   private boolean keyEquals(Object probeKey, int probeHash, long targetEncoding, int targetHash) {
@@ -1137,7 +1146,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
     @Override
     public Iterator<Map.Entry<K, V>> iterator() {
-      return new EntryIterator();
+      return new HashIterator<>(DirectEntry::new);
     }
 
     @Override
@@ -1169,7 +1178,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   class EncodingSet extends AbstractSet<Long> {
     @Override
     public Iterator<Long> iterator() {
-      return new EncodingIterator();
+      return new HashIterator<>(e -> readLong(e, ENCODING));
     }
 
     @Override
@@ -1188,7 +1197,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
     @Override
     public Iterator<K> iterator() {
-      return new KeyIterator();
+      return new HashIterator<>(keyReader());
     }
 
     @Override
@@ -1212,7 +1221,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     }
   }
 
-  abstract class HashIterator<T> implements Iterator<T> {
+  class HashIterator<T> implements Iterator<T> {
 
     final int expectedModCount; // For fast-fail
     /*
@@ -1221,29 +1230,29 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
      */
     final IntBuffer table;
     final IntBuffer tableView;
+    final Function<IntBuffer, T> generator;
     
     T next = null; // next entry to return
 
-    HashIterator() {
+    HashIterator(Function<IntBuffer, T> create) {
       hasUsedIterators = true;
       table = hashtable;
       tableView = (IntBuffer) table.asReadOnlyBuffer().clear();
       expectedModCount = modCount;
-
+      generator = create;
+      
       if (size > 0) { // advance to first entry
         while (tableView.hasRemaining()) {
           IntBuffer entry = (IntBuffer) tableView.slice().limit(ENTRY_SIZE);
           tableView.position(tableView.position() + ENTRY_SIZE);
           
           if (isPresent(entry)) {
-            next = create(entry);
+            next = generator.apply(entry);
             break;
           }
         }
       }
     }
-
-    protected abstract T create(IntBuffer entry);
 
     @Override
     public boolean hasNext() {
@@ -1265,7 +1274,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
         tableView.position(tableView.position() + ENTRY_SIZE);
 
         if (isPresent(entry)) {
-          next = create(entry);
+          next = generator.apply(entry);
           break;
         }
       }
@@ -1356,41 +1365,6 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     }
   }
   
-  class KeyIterator extends HashIterator<K> {
-    KeyIterator() {
-      super();
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    protected K create(IntBuffer entry) {
-      return (K) storageEngine.readKey(readLong(entry, ENCODING), entry.get(KEY_HASHCODE));
-    }
-
-  }
-
-  class EntryIterator extends HashIterator<Entry<K, V>> {
-    EntryIterator() {
-      super();
-    }
-
-    @Override
-    protected Entry<K, V> create(IntBuffer entry) {
-      return new DirectEntry(entry);
-    }
-  }
-
-  class EncodingIterator extends HashIterator<Long> {
-    EncodingIterator() {
-      super();
-    }
-
-    @Override
-    protected Long create(IntBuffer entry) {
-      return readLong(entry, ENCODING);
-    }
-  }
-
   class DirectEntry implements Entry<K, V> {
 
     private final K key;
