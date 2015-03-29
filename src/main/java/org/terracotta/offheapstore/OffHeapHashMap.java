@@ -251,8 +251,9 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     if (size == 0) {
       return outputTransform.apply(empty());
     }
-    
-    IntBuffer view = (IntBuffer) hashtable.duplicate().position(indexFor(spread(hash)));
+
+    IntBuffer table = getCurrentTable();
+    IntBuffer view = (IntBuffer) table.duplicate().position(indexFor(spread(hash), table));
 
     int limit = reprobeLimit();
 
@@ -280,34 +281,36 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   public long installMappingForHashAndEncoding(int pojoHash, ByteBuffer offheapBinaryKey, ByteBuffer offheapBinaryValue, int metadata) {
     freePendingTables();
 
-    int[] newEntry = installEntry(offheapBinaryKey, pojoHash, offheapBinaryValue, metadata);
-
-    int start = indexFor(spread(pojoHash));
-    hashtable.position(start);
+    IntBuffer table = getCurrentTable();
+    int start = indexFor(spread(pojoHash), table);
+    table.position(start);
 
     int limit = reprobeLimit();
 
     for (int i = 0; i < limit; i++) {
-      if (!hashtable.hasRemaining()) {
-        hashtable.rewind();
+      if (!table.hasRemaining()) {
+        table.rewind();
       }
 
-      IntBuffer entry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
+      IntBuffer entry = (IntBuffer) table.slice().limit(ENTRY_SIZE);
 
       if (isAvailable(entry)) {
         if (isRemoved(entry)) {
           removedSlots--;
+        }
+        int[] newEntry = installEntry(offheapBinaryKey, pojoHash, offheapBinaryValue, metadata);
+        if (tableInvalidated(table)) {
+          storageEngine.freeMapping(readLong(newEntry, ENCODING), newEntry[KEY_HASHCODE], false); //XXX: further contemplate the boolean value here
+          return installMappingForHashAndEncoding(pojoHash, offheapBinaryKey, offheapBinaryValue, metadata);
         }
         entry.put(newEntry);
         slotAdded(entry);
         hit(entry);
         return readLong(newEntry, ENCODING);
       } else {
-        hashtable.position(hashtable.position() + ENTRY_SIZE);
+        table.position(table.position() + ENTRY_SIZE);
       }
     }
-
-    storageEngine.freeMapping(readLong(newEntry, ENCODING), newEntry[KEY_HASHCODE], false); //XXX: further contemplate the boolean value here
 
     // hit reprobe limit - must rehash
     expand(start, limit);
@@ -333,16 +336,17 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   protected <T> T update(int hash, Predicate<IntBuffer> slotCheck, Consumer<IntBuffer> transform, Function<Optional<IntBuffer>, T> output) {
     freePendingTables();
 
-    hashtable.position(indexFor(spread(hash)));
+    IntBuffer table = getCurrentTable();
+    table.position(indexFor(spread(hash), table));
 
     int limit = reprobeLimit();
 
     for (int i = 0; i < limit; i++) {
-      if (!hashtable.hasRemaining()) {
-        hashtable.rewind();
+      if (!table.hasRemaining()) {
+        table.rewind();
       }
 
-      IntBuffer entry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
+      IntBuffer entry = (IntBuffer) table.slice().limit(ENTRY_SIZE);
 
       if (isTerminating(entry)) {
         return output.apply(empty());
@@ -350,7 +354,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
         transform.accept(entry);
         return output.apply(of(entry));
       } else {
-        hashtable.position(hashtable.position() + ENTRY_SIZE);
+        table.position(table.position() + ENTRY_SIZE);
       }
     }
 
@@ -369,67 +373,85 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
     int hash = key.hashCode();
 
-    int[] newEntry = writeEntry(key, hash, value, metadata);
-
-    int start = indexFor(spread(hash));
-    hashtable.position(start);
+    IntBuffer table = getCurrentTable();
+    int start = indexFor(spread(hash), table);
+    table.position(start);
 
     int limit = reprobeLimit();
 
     for (int i = 0; i < limit; i++) {
-      if (!hashtable.hasRemaining()) {
-        hashtable.rewind();
+      if (!table.hasRemaining()) {
+        table.rewind();
       }
 
-      IntBuffer entry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
+      IntBuffer entry = (IntBuffer) table.slice().limit(ENTRY_SIZE);
 
       if (isAvailable(entry)) {
-        storageEngine.attachedMapping(readLong(newEntry, ENCODING), hash, metadata);
-        storageEngine.invalidateCache();
         for (IntBuffer laterEntry = entry; i < limit; i++) {
           if (isTerminating(laterEntry)) {
             break;
           } else if (isPresent(laterEntry) && keyEquals(key, hash, readLong(laterEntry, ENCODING), laterEntry.get(KEY_HASHCODE))) {
+            int[] newEntry = writeEntry(key, hash, value, metadata);
+            if (tableInvalidated(table) || slotInvalidated(laterEntry)) {
+              storageEngine.freeMapping(readLong(newEntry, ENCODING), newEntry[KEY_HASHCODE], false); //XXX: further contemplate the boolean value here
+              return put(key, value, metadata);
+            }
+            storageEngine.attachedMapping(readLong(newEntry, ENCODING), hash, metadata);
+            storageEngine.invalidateCache();
+
             V old = (V) storageEngine.readValue(readLong(laterEntry, ENCODING));
             storageEngine.freeMapping(readLong(laterEntry, ENCODING), laterEntry.get(KEY_HASHCODE), false);
             long oldEncoding = readLong(laterEntry, ENCODING);
+
             laterEntry.put(newEntry);
             slotUpdated((IntBuffer) laterEntry.flip(), oldEncoding);
             hit(laterEntry);
             return old;
           } else {
-            hashtable.position(hashtable.position() + ENTRY_SIZE);
+            table.position(table.position() + ENTRY_SIZE);
           }
 
-          if (!hashtable.hasRemaining()) {
-            hashtable.rewind();
+          if (!table.hasRemaining()) {
+            table.rewind();
           }
 
-          laterEntry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
+          laterEntry = (IntBuffer) table.slice().limit(ENTRY_SIZE);
         }
         if (isRemoved(entry)) {
           removedSlots--;
         }
+        int[] newEntry = writeEntry(key, hash, value, metadata);
+        if (tableInvalidated(table)) {
+          storageEngine.freeMapping(readLong(newEntry, ENCODING), newEntry[KEY_HASHCODE], false); //XXX: further contemplate the boolean value here
+          return put(key, value, metadata);
+        }
+        storageEngine.attachedMapping(readLong(newEntry, ENCODING), hash, metadata);
+        storageEngine.invalidateCache();
         entry.put(newEntry);
         slotAdded(entry);
         hit(entry);
         return null;
       } else if (keyEquals(key, hash, readLong(entry, ENCODING), entry.get(KEY_HASHCODE))) {
+        int[] newEntry = writeEntry(key, hash, value, metadata);
+        if (tableInvalidated(table) || slotInvalidated(entry)) {
+          storageEngine.freeMapping(readLong(newEntry, ENCODING), newEntry[KEY_HASHCODE], false); //XXX: further contemplate the boolean value here
+          return put(key, value, metadata);
+        }
         storageEngine.attachedMapping(readLong(newEntry, ENCODING), hash, metadata);
         storageEngine.invalidateCache();
+
         V old = (V) storageEngine.readValue(readLong(entry, ENCODING));
         storageEngine.freeMapping(readLong(entry, ENCODING), entry.get(KEY_HASHCODE), false);
         long oldEncoding = readLong(entry, ENCODING);
+
         entry.put(newEntry);
         slotUpdated((IntBuffer) entry.flip(), oldEncoding);
         hit(entry);
         return old;
       } else {
-        hashtable.position(hashtable.position() + ENTRY_SIZE);
+        table.position(table.position() + ENTRY_SIZE);
       }
     }
-
-    storageEngine.freeMapping(readLong(newEntry, ENCODING), newEntry[KEY_HASHCODE], false); //XXX: further contemplate the boolean value here
 
     // hit reprobe limit - must rehash
     expand(start, limit);
@@ -460,45 +482,86 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
     int hash = key.hashCode();
 
-    int start = indexFor(spread(hash));
-    hashtable.position(start);
+    IntBuffer table = getCurrentTable();
+    int start = indexFor(spread(hash), table);
+    table.position(start);
 
     int limit = reprobeLimit();
 
     for (int i = 0; i < limit; i++) {
-      if (!hashtable.hasRemaining()) {
-        hashtable.rewind();
+      if (!table.hasRemaining()) {
+        table.rewind();
       }
 
-      IntBuffer entry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
+      IntBuffer entry = (IntBuffer) table.slice().limit(ENTRY_SIZE);
 
       if (isAvailable(entry)) {
         for (IntBuffer laterEntry = entry; i < limit; i++) {
           if (isTerminating(laterEntry)) {
             break;
           } else if (isPresent(laterEntry) && keyEquals(key, hash, readLong(laterEntry, ENCODING), laterEntry.get(KEY_HASHCODE))) {
-            return put(key, value, metadata);
+            int[] newEntry = writeEntry(key, hash, value, metadata);
+            if (tableInvalidated(table) || slotInvalidated(laterEntry)) {
+              storageEngine.freeMapping(readLong(newEntry, ENCODING), newEntry[KEY_HASHCODE], false); //XXX: further contemplate the boolean value here
+              return fill(key, value, metadata);
+            }
+            storageEngine.attachedMapping(readLong(newEntry, ENCODING), hash, metadata);
+            storageEngine.invalidateCache();
+            
+            V old = (V) storageEngine.readValue(readLong(laterEntry, ENCODING));
+            storageEngine.freeMapping(readLong(laterEntry, ENCODING), laterEntry.get(KEY_HASHCODE), false);
+            long oldEncoding = readLong(laterEntry, ENCODING);
+            
+            laterEntry.put(newEntry);
+            slotUpdated((IntBuffer) laterEntry.flip(), oldEncoding);
+            hit(laterEntry);
+            return old;
           } else {
-            hashtable.position(hashtable.position() + ENTRY_SIZE);
+            table.position(table.position() + ENTRY_SIZE);
           }
 
-          if (!hashtable.hasRemaining()) {
-            hashtable.rewind();
+          if (!table.hasRemaining()) {
+            table.rewind();
           }
 
-          laterEntry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
+          laterEntry = (IntBuffer) table.slice().limit(ENTRY_SIZE);
         }
-
+        if (isRemoved(entry)) {
+          removedSlots--;
+        }
         int[] newEntry = tryWriteEntry(key, hash, value, metadata);
         if (newEntry == null) {
           return null;
-        } else {
-          return fill(key, value, hash, newEntry, metadata);
         }
+        if (tableInvalidated(table)) {
+          storageEngine.freeMapping(readLong(newEntry, ENCODING), newEntry[KEY_HASHCODE], false); //XXX: further contemplate the boolean value here
+          return put(key, value, metadata);
+        }
+        storageEngine.attachedMapping(readLong(newEntry, ENCODING), hash, metadata);
+        storageEngine.invalidateCache();
+        entry.put(newEntry);
+        slotAdded(entry);
+        hit(entry);
+        return null;
       } else if (keyEquals(key, hash, readLong(entry, ENCODING), entry.get(KEY_HASHCODE))) {
-        return put(key, value, metadata);
+        int[] newEntry = writeEntry(key, hash, value, metadata);
+        if (tableInvalidated(table) || slotInvalidated(entry)) {
+          storageEngine.freeMapping(readLong(newEntry, ENCODING), newEntry[KEY_HASHCODE], false); //XXX: further contemplate the boolean value here
+          return put(key, value, metadata);
+        }
+        storageEngine.attachedMapping(readLong(newEntry, ENCODING), hash, metadata);
+        storageEngine.invalidateCache();
+
+        V old = (V) storageEngine.readValue(readLong(entry, ENCODING));
+        storageEngine.freeMapping(readLong(entry, ENCODING), entry.get(KEY_HASHCODE), false);
+        long oldEncoding = readLong(entry, ENCODING);
+
+        entry.put(newEntry);
+        slotUpdated((IntBuffer) entry.flip(), oldEncoding);
+        hit(entry);
+        return old;
       } else {
-        hashtable.position(hashtable.position() + ENTRY_SIZE);
+        table.position(table.position() + ENTRY_SIZE);
       }
     }
 
@@ -508,74 +571,6 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     } else {
       return null;
     }
-  }
-
-  @SuppressWarnings("unchecked")
-  @FindbugsSuppressWarnings("VO_VOLATILE_INCREMENT")
-  protected final V fill(K key, V value, int hash, int[] newEntry, int metadata) {
-    freePendingTables();
-
-    int start = indexFor(spread(hash));
-    hashtable.position(start);
-
-    int limit = reprobeLimit();
-
-    for (int i = 0; i < limit; i++) {
-      if (!hashtable.hasRemaining()) {
-        hashtable.rewind();
-      }
-
-      IntBuffer entry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
-
-      if (isAvailable(entry)) {
-        storageEngine.attachedMapping(readLong(newEntry, ENCODING), hash, metadata);
-        storageEngine.invalidateCache();
-        for (IntBuffer laterEntry = entry; i < limit; i++) {
-          if (isTerminating(laterEntry)) {
-            break;
-          } else if (isPresent(laterEntry) && keyEquals(key, hash, readLong(laterEntry, ENCODING), laterEntry.get(KEY_HASHCODE))) {
-            V old = (V) storageEngine.readValue(readLong(laterEntry, ENCODING));
-            storageEngine.freeMapping(readLong(laterEntry, ENCODING), laterEntry.get(KEY_HASHCODE), false);
-            long oldEncoding = readLong(laterEntry, ENCODING);
-            laterEntry.put(newEntry);
-            slotUpdated((IntBuffer) laterEntry.flip(), oldEncoding);
-            hit(laterEntry);
-            return old;
-          } else {
-            hashtable.position(hashtable.position() + ENTRY_SIZE);
-          }
-
-          if (!hashtable.hasRemaining()) {
-            hashtable.rewind();
-          }
-
-          laterEntry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
-        }
-        if (isRemoved(entry)) {
-          removedSlots--;
-        }
-        entry.put(newEntry);
-        slotAdded(entry);
-        hit(entry);
-        return null;
-      } else if (keyEquals(key, hash, readLong(entry, ENCODING), entry.get(KEY_HASHCODE))) {
-        storageEngine.attachedMapping(readLong(newEntry, ENCODING), hash, metadata);
-        storageEngine.invalidateCache();
-        V old = (V) storageEngine.readValue(readLong(entry, ENCODING));
-        storageEngine.freeMapping(readLong(entry, ENCODING), entry.get(KEY_HASHCODE), false);
-        long oldEncoding = readLong(entry, ENCODING);
-        entry.put(newEntry);
-        slotUpdated((IntBuffer) entry.flip(), oldEncoding);
-        hit(entry);
-        return old;
-      } else {
-        hashtable.position(hashtable.position() + ENTRY_SIZE);
-      }
-    }
-
-    storageEngine.freeMapping(readLong(newEntry, ENCODING), newEntry[KEY_HASHCODE], true);
-
-    return null;
   }
 
   private int[] writeEntry(K key, int hash, V value, int metadata) {
@@ -596,11 +591,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
   @FindbugsSuppressWarnings("PZLA_PREFER_ZERO_LENGTH_ARRAYS")
   private int[] tryWriteEntry(K key, int hash, V value, int metadata) {
-    if (hashtable == null) {
-      throw new NullPointerException();
-    } else if (hashtable == DESTROYED_TABLE) {
-      throw new IllegalStateException("Offheap map/cache has been destroyed");
-    } else if ((metadata & RESERVED_STATUS_BITS) == 0) {
+    if ((metadata & RESERVED_STATUS_BITS) == 0) {
       Long encoding = storageEngine.writeMapping(key, value, hash, metadata);
       if (encoding == null) {
         return null;
@@ -626,11 +617,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   
   @FindbugsSuppressWarnings("PZLA_PREFER_ZERO_LENGTH_ARRAYS")
   private int[] tryInstallEntry(ByteBuffer offheapBinaryKey, int pojoHash, ByteBuffer offheapBinaryValue, int metadata) {
-    if (hashtable == null) {
-      throw new NullPointerException();
-    } else if (hashtable == DESTROYED_TABLE) {
-      throw new IllegalStateException("Offheap map/cache has been destroyed");
-    } else if ((metadata & RESERVED_STATUS_BITS) == 0) {
+    if ((metadata & RESERVED_STATUS_BITS) == 0) {
       Long encoding = ((BinaryStorageEngine) storageEngine).writeBinaryMapping(offheapBinaryKey, offheapBinaryValue, pojoHash, metadata);
       if (encoding == null) {
         return null;
@@ -662,16 +649,17 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
       return output.apply(empty());
     }
     
-    hashtable.position(indexFor(spread(hash)));
+    IntBuffer table = getCurrentTable();
+    table.position(indexFor(spread(hash), table));
 
     int limit = reprobeLimit();
 
     for (int i = 0; i < limit; i++) {
-      if (!hashtable.hasRemaining()) {
-        hashtable.rewind();
+      if (!table.hasRemaining()) {
+        table.rewind();
       }
 
-      IntBuffer entry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
+      IntBuffer entry = (IntBuffer) table.slice().limit(ENTRY_SIZE);
 
       if (isTerminating(entry)) {
         return output.apply(empty());
@@ -696,7 +684,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
         shrink();
         return result;
       } else {
-        hashtable.position(hashtable.position() + ENTRY_SIZE);
+        table.position(table.position() + ENTRY_SIZE);
       }
     }
 
@@ -799,10 +787,6 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
   private static long readLong(IntBuffer entry, int offset) {
     return (((long) entry.get(offset)) << Integer.SIZE) | (0xffffffffL & entry.get(offset + 1));
-  }
-
-  private int indexFor(int hash) {
-    return indexFor(hash, hashtable);
   }
 
   private static int indexFor(int hash, IntBuffer table) {
@@ -1115,6 +1099,27 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     return reprobeLimit;
   }
 
+  private boolean tableInvalidated(IntBuffer originalTable) {
+    //check the current table is still the same
+    return originalTable != hashtable;
+  }
+  
+  private boolean slotInvalidated(IntBuffer entry) {
+    //check the current slot wasn't removed
+    return isRemoved(entry);
+  }
+
+  private IntBuffer getCurrentTable() {
+    IntBuffer table = hashtable;
+    if (table == null) {
+      throw new NullPointerException();
+    } else if (table == DESTROYED_TABLE) {
+      throw new IllegalStateException("Offheap map/cache has been destroyed");
+    } else {
+      return table;
+    }
+  }
+
   class EntrySet extends AbstractSet<Entry<K, V>> {
 
     @Override
@@ -1404,7 +1409,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   }
 
   protected void removeAtTableOffset(int offset, boolean shrink) {
-    IntBuffer entry = ((IntBuffer) hashtable.duplicate().position(offset).limit(offset + ENTRY_SIZE)).slice();
+    IntBuffer entry = ((IntBuffer) getCurrentTable().duplicate().position(offset).limit(offset + ENTRY_SIZE)).slice();
 
     if (isPresent(entry)) {
       storageEngine.freeMapping(readLong(entry, ENCODING), entry.get(KEY_HASHCODE), true);
@@ -1421,7 +1426,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
   @SuppressWarnings("unchecked")
   protected V getAtTableOffset(int offset) {
-    IntBuffer entry = ((IntBuffer) hashtable.duplicate().position(offset).limit(offset + ENTRY_SIZE)).slice();
+    IntBuffer entry = ((IntBuffer) getCurrentTable().duplicate().position(offset).limit(offset + ENTRY_SIZE)).slice();
 
     if (isPresent(entry)) {
       return (V) storageEngine.readValue(readLong(entry, ENCODING));
@@ -1431,7 +1436,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   }
 
   protected Entry<K, V> getEntryAtTableOffset(int offset) {
-    IntBuffer entry = ((IntBuffer) hashtable.duplicate().position(offset).limit(offset + ENTRY_SIZE)).slice();
+    IntBuffer entry = ((IntBuffer) getCurrentTable().duplicate().position(offset).limit(offset + ENTRY_SIZE)).slice();
 
     if (isPresent(entry)) {
       return new DirectEntry(entry);
@@ -1442,7 +1447,8 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
   @Override
   public Integer getSlotForHashAndEncoding(int hash, long encoding, long mask) {
-    IntBuffer view = (IntBuffer) hashtable.duplicate().position(indexFor(spread(hash)));
+    IntBuffer table = getCurrentTable();
+    IntBuffer view = (IntBuffer) table.duplicate().position(indexFor(spread(hash), table));
 
     int limit = reprobeLimit();
 
