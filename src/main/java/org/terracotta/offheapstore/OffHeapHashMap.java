@@ -26,6 +26,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -315,48 +316,22 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   }
 
   public Integer getMetadata(Object key, int mask) {
-    return read(key.hashCode(), keyEquality(key), oe -> oe.map(e -> e.get(STATUS) & mask & ~RESERVED_STATUS_BITS).orElse(null));
+    int safeMask = mask & ~RESERVED_STATUS_BITS;
+    return read(key.hashCode(), keyEquality(key), oe -> oe.map(e -> e.get(STATUS) & safeMask).orElse(null));
   }
 
   public Integer getAndSetMetadata(Object key, int mask, int values) {
     int safeMask = mask & ~RESERVED_STATUS_BITS;
-    
-    freePendingTables();
-
-    int hash = key.hashCode();
-
-    hashtable.position(indexFor(spread(hash)));
-
-    int limit = reprobeLimit();
-
-    for (int i = 0; i < limit; i++) {
-      if (!hashtable.hasRemaining()) {
-        hashtable.rewind();
-      }
-
-      IntBuffer entry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
-
-      long encoding = readLong(entry, ENCODING);
-      if (isTerminating(entry)) {
-        return null;
-      } else if (isPresent(entry) && keyEquals(key, hash, encoding, entry.get(KEY_HASHCODE))) {
-        int previous = entry.get(STATUS);
-        entry.put(STATUS, (previous & ~safeMask) | (values & safeMask));
-        return previous & safeMask;
-      } else {
-        hashtable.position(hashtable.position() + ENTRY_SIZE);
-      }
-    }
-
-    return null;
+    return update(key.hashCode(), keyEquality(key), e -> e.put(STATUS, (e.get(STATUS) & ~safeMask) | (values & safeMask)), oe -> oe.map(e -> e.get(STATUS) & safeMask).orElse(null));
   }
 
   public V getValueAndSetMetadata(Object key, int mask, int values) {
     int safeMask = mask & ~RESERVED_STATUS_BITS;
-    
-    freePendingTables();
+    return update(key.hashCode(), keyEquality(key), e -> e.put(STATUS, (e.get(STATUS) & ~safeMask) | (values & safeMask)), oe -> oe.map(valueReader()).orElse(null));
+  }
 
-    int hash = key.hashCode();
+  protected <T> T update(int hash, Predicate<IntBuffer> slotCheck, Consumer<IntBuffer> transform, Function<Optional<IntBuffer>, T> output) {
+    freePendingTables();
 
     hashtable.position(indexFor(spread(hash)));
 
@@ -369,19 +344,17 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
       IntBuffer entry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
 
-      long encoding = readLong(entry, ENCODING);
       if (isTerminating(entry)) {
-        return null;
-      } else if (isPresent(entry) && keyEquals(key, hash, encoding, entry.get(KEY_HASHCODE))) {
-        hit(entry);
-        entry.put(STATUS, (entry.get(STATUS) & ~safeMask) | (values & safeMask));
-        return (V) storageEngine.readValue(readLong(entry, ENCODING));
+        return output.apply(empty());
+      } else if (isPresent(entry) && slotCheck.test(entry)) {
+        transform.accept(entry);
+        return output.apply(of(entry));
       } else {
         hashtable.position(hashtable.position() + ENTRY_SIZE);
       }
     }
 
-    return null;
+    return output.apply(empty());
   }
 
   @Override

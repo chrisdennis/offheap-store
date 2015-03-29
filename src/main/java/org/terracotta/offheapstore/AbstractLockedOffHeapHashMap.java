@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -231,38 +232,16 @@ public abstract class AbstractLockedOffHeapHashMap<K, V> extends OffHeapHashMap<
   }
 
   @Override
-  public Integer getMetadata(Object key, int mask) {
-    Lock l = readLock();
+  protected <T> T update(int hash, Predicate<IntBuffer> slotCheck, Consumer<IntBuffer> transform, Function<Optional<IntBuffer>, T> output) {
+    Lock l = writeLock();
     l.lock();
     try {
-      return super.getMetadata(key, mask);
+      return super.update(hash, slotCheck, transform, output);
     } finally {
       l.unlock();
     }
   }
   
-  @Override
-  public Integer getAndSetMetadata(Object key, int mask, int values) {
-    Lock l = writeLock();
-    l.lock();
-    try {
-      return super.getAndSetMetadata(key, mask, values);
-    } finally {
-      l.unlock();
-    }
-  }
-
-  @Override
-  public V getValueAndSetMetadata(Object key, int mask, int values) {
-    Lock l = writeLock();
-    l.lock();
-    try {
-      return super.getValueAndSetMetadata(key, mask, values);
-    } finally {
-      l.unlock();
-    }
-  }
-
   @Override
   public boolean evict(int index, boolean shrink) {
     Lock l = writeLock();
