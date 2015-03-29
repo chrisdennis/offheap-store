@@ -674,12 +674,18 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
   @Override
   public V remove(Object key) {
+    return remove(key.hashCode(), keyEquality(key), oe -> oe.map(e -> (V) storageEngine.readValue(readLong(e, ENCODING))).orElse(null));
+  }
+
+  public boolean removeNoReturn(Object key) {
+    return remove(key.hashCode(), keyEquality(key), Optional::isPresent);
+  }
+  
+  private <T> T remove(int hash, Predicate<IntBuffer> slotCheck, Function<Optional<IntBuffer>, T> output) {
     freePendingTables();
 
-    int hash = key.hashCode();
-
     if (size == 0) {
-      return null;
+      return output.apply(empty());
     }
     
     hashtable.position(indexFor(spread(hash)));
@@ -694,10 +700,9 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
       IntBuffer entry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
 
       if (isTerminating(entry)) {
-        return null;
-      } else if (isPresent(entry) && keyEquals(key, hash, readLong(entry, ENCODING), entry.get(KEY_HASHCODE))) {
-        @SuppressWarnings("unchecked")
-        V removedValue = (V) storageEngine.readValue(readLong(entry, ENCODING));
+        return output.apply(empty());
+      } else if (isPresent(entry) && slotCheck.test(entry)) {
+        T result = output.apply(of(entry));
         storageEngine.freeMapping(readLong(entry, ENCODING), entry.get(KEY_HASHCODE), true);
 
         /*
@@ -715,57 +720,13 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
         entry.put(STATUS, STATUS_REMOVED);
         slotRemoved(entry);
         shrink();
-        return removedValue;
+        return result;
       } else {
         hashtable.position(hashtable.position() + ENTRY_SIZE);
       }
     }
 
-    return null;
-  }
-
-  public boolean removeNoReturn(Object key) {
-    freePendingTables();
-
-    int hash = key.hashCode();
-
-    hashtable.position(indexFor(spread(hash)));
-
-    int limit = reprobeLimit();
-
-    for (int i = 0; i < limit; i++) {
-      if (!hashtable.hasRemaining()) {
-        hashtable.rewind();
-      }
-
-      IntBuffer entry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
-
-      if (isTerminating(entry)) {
-        return false;
-      } else if (isPresent(entry) && keyEquals(key, hash, readLong(entry, ENCODING), entry.get(KEY_HASHCODE))) {
-        storageEngine.freeMapping(readLong(entry, ENCODING), entry.get(KEY_HASHCODE), true);
-
-        /*
-         * TODO We might want to track the number of 'removed' slots in the
-         * table, and rehash it if we reach some threshold to avoid lookup costs
-         * staying artificially high when the table is relatively empty, but full
-         * of 'removed' slots.  This situation should be relatively rare for
-         * normal cache usage - but might be more common for more map like usage
-         * patterns.
-         *
-         * The more severe versions of this pattern are now handled by the table
-         * shrinking when the occupation drops below the shrink threshold, as
-         * that will rehash the table.
-         */
-        entry.put(STATUS_REMOVED);
-        slotRemoved(entry);
-        shrink();
-        return true;
-      } else {
-        hashtable.position(hashtable.position() + ENTRY_SIZE);
-      }
-    }
-    return false;
+    return output.apply(empty());
   }
   
   @Override
