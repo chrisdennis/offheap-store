@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2015 Terracotta, Inc., a Software AG company.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +24,7 @@ import org.terracotta.offheapstore.storage.IntegerStorageEngine;
 import org.terracotta.offheapstore.storage.OffHeapBufferHalfStorageEngine;
 import org.terracotta.offheapstore.storage.SplitStorageEngine;
 import org.terracotta.offheapstore.storage.portability.ByteArrayPortability;
-import org.terracotta.offheapstore.util.PointerSizeParameterizedTest;
+import org.terracotta.offheapstore.it.util.PointerSizeParameterizedTest;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;

@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2015 Terracotta, Inc., a Software AG company.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,7 +31,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import org.terracotta.offheapstore.concurrent.ConcurrentOffHeapHashMap;
-import org.terracotta.offheapstore.disk.AbstractDiskTest;
+import org.terracotta.offheapstore.it.disk.AbstractDiskTest;
 import org.terracotta.offheapstore.disk.paging.MappedPageSource;
 import org.terracotta.offheapstore.disk.storage.portability.PersistentByteArrayPortability;
 import org.terracotta.offheapstore.disk.storage.portability.PersistentSerializablePortability;

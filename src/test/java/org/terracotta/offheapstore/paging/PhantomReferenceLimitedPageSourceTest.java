@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2015 Terracotta, Inc., a Software AG company.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,10 +15,7 @@
  */
 package org.terracotta.offheapstore.paging;
 
-import org.terracotta.offheapstore.paging.Page;
-import org.terracotta.offheapstore.paging.PageSource;
-import org.terracotta.offheapstore.paging.PhantomReferenceLimitedPageSource;
-import static org.terracotta.offheapstore.util.RetryAssert.assertBy;
+import static org.terracotta.offheapstore.it.util.RetryAssert.assertBy;
 import static org.hamcrest.core.IsNull.notNullValue;
 
 import java.util.ArrayList;
@@ -35,20 +32,20 @@ public class PhantomReferenceLimitedPageSourceTest {
   public void testExhaustion() {
     testExhaustion(new PhantomReferenceLimitedPageSource(64));
   }
-  
+
   private static void testExhaustion(PageSource source) {
     Page p = source.allocate(64, false, false, null);
     Assert.assertNotNull(p);
-    
+
     Assert.assertNull(source.allocate(1, false, false, null));
-    
+
     Assert.assertNotNull(p);
   }
-  
+
   @Test
   public void testRecycle() throws InterruptedException {
     final PageSource source = new PhantomReferenceLimitedPageSource(64);
-    
+
     testExhaustion(source);
 
     assertBy(30, TimeUnit.SECONDS, new Callable<Page>() {
@@ -58,10 +55,10 @@ public class PhantomReferenceLimitedPageSourceTest {
         System.runFinalization();
         return source.allocate(64, false, false, null);
       }
-      
+
     }, notNullValue());
   }
-  
+
   @Test
   public void testExhaustionThroughManyAllocations() {
     PageSource source = new PhantomReferenceLimitedPageSource(64);
@@ -72,9 +69,9 @@ public class PhantomReferenceLimitedPageSourceTest {
       Assert.assertNotNull(p);
       bs.add(p);
     }
-    
+
     Assert.assertNull(source.allocate(1, false, false, null));
-    
+
     Assert.assertEquals(64, bs.size());
   }
 
@@ -84,7 +81,7 @@ public class PhantomReferenceLimitedPageSourceTest {
 
     Page p = source.allocate(64, false, false, null);
     Assert.assertNotNull(p);
-    
+
     testExhaustion(source);
 
     assertBy(30, TimeUnit.SECONDS, new Callable<Page>() {
@@ -94,7 +91,7 @@ public class PhantomReferenceLimitedPageSourceTest {
         System.runFinalization();
         return source.allocate(64, false, false, null);
       }
-      
+
     }, notNullValue());
     Assert.assertNotNull(p);
   }

@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2015 Terracotta, Inc., a Software AG company.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -87,11 +87,11 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   private static final int ALLOCATE_ON_CLEAR_THRESHOLD_RATIO = 2;
 
   private static final IntBuffer DESTROYED_TABLE = IntBuffer.allocate(0);
-  
+
   /**
    * Size of a table entry in primitive {@code int} units
    */
-  protected static final int ENTRY_SIZE = 4;
+  public static final int ENTRY_SIZE = 4;
   protected static final int ENTRY_BIT_SHIFT = Integer.numberOfTrailingZeros(ENTRY_SIZE);
 
   protected static final int STATUS = 0;
@@ -235,7 +235,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     if (size == 0) {
       return false;
     }
-    
+
     IntBuffer view = (IntBuffer) hashtable.duplicate().position(indexFor(spread(hash)));
 
     int limit = reprobeLimit();
@@ -267,7 +267,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     if (size == 0) {
       return null;
     }
-    
+
     IntBuffer view = (IntBuffer) hashtable.duplicate().position(indexFor(spread(hash)));
 
     int limit = reprobeLimit();
@@ -296,7 +296,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     if (size == 0) {
       return null;
     }
-    
+
     IntBuffer view = (IntBuffer) hashtable.duplicate().position(indexFor(spread(hash)));
 
     int limit = reprobeLimit();
@@ -318,7 +318,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     }
     return null;
   }
-  
+
   @Override
   @FindbugsSuppressWarnings("VO_VOLATILE_INCREMENT")
   public long installMappingForHashAndEncoding(int pojoHash, ByteBuffer offheapBinaryKey, ByteBuffer offheapBinaryValue, int metadata) {
@@ -355,13 +355,13 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
     // hit reprobe limit - must rehash
     expand(start, limit);
-    
+
     return installMappingForHashAndEncoding(pojoHash, offheapBinaryKey, offheapBinaryValue, metadata);
   }
 
   public Integer getMetadata(Object key, int mask) {
     int safeMask = mask & ~RESERVED_STATUS_BITS;
-    
+
     freePendingTables();
 
     int hash = key.hashCode();
@@ -392,7 +392,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
   public Integer getAndSetMetadata(Object key, int mask, int values) {
     int safeMask = mask & ~RESERVED_STATUS_BITS;
-    
+
     freePendingTables();
 
     int hash = key.hashCode();
@@ -425,7 +425,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
   public V getValueAndSetMetadata(Object key, int mask, int values) {
     int safeMask = mask & ~RESERVED_STATUS_BITS;
-    
+
     freePendingTables();
 
     int hash = key.hashCode();
@@ -722,7 +722,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
       }
     }
   }
-  
+
   @FindbugsSuppressWarnings("PZLA_PREFER_ZERO_LENGTH_ARRAYS")
   private int[] tryInstallEntry(ByteBuffer offheapBinaryKey, int pojoHash, ByteBuffer offheapBinaryValue, int metadata) {
     if (hashtable == null) {
@@ -740,7 +740,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
       throw new IllegalArgumentException("Invalid metadata for binary key : " + Integer.toBinaryString(metadata));
     }
   }
-  
+
   private static int[] createEntry(int hash, long encoding, int metadata) {
     return new int[] { STATUS_USED | metadata, hash, (int) (encoding >>> Integer.SIZE), (int) encoding };
   }
@@ -754,7 +754,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     if (size == 0) {
       return null;
     }
-    
+
     hashtable.position(indexFor(spread(hash)));
 
     int limit = reprobeLimit();
@@ -894,7 +894,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     }
     return false;
   }
-  
+
   @Override
   @FindbugsSuppressWarnings("VO_VOLATILE_INCREMENT")
   public void clear() {
@@ -930,9 +930,9 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
       }
     }
     hashtable.clear();
-    
+
     wipePendingTables();
-    
+
     if (hashtable.capacity() > size * ENTRY_SIZE * ALLOCATE_ON_CLEAR_THRESHOLD_RATIO) {
       Page newTablePage = allocateTable(size);
       if (newTablePage != null) {
@@ -1012,7 +1012,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
       throw new UnsupportedOperationException("Cannot check binary quality unless configured with a BinaryStorageEngine");
     }
   }
-  
+
   private void expand(int start, int length) {
     if (!tryExpand()) {
       tableExpansionFailure(start, length);
@@ -1053,7 +1053,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     if (hashtable == DESTROYED_TABLE) {
       throw new IllegalStateException("This map/cache has been destroyed");
     }
-    
+
     /* Increase the size of the table to accommodate more entries */
     int newsize = hashtable.capacity() << scale;
 
@@ -1192,7 +1192,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
     }
 
     IntBuffer newTable = newTablePage.asIntBuffer();
-    
+
     for (hashtable.clear(); hashtable.hasRemaining(); hashtable.position(hashtable.position() + ENTRY_SIZE)) {
       IntBuffer entry = (IntBuffer) hashtable.slice().limit(ENTRY_SIZE);
 
@@ -1374,7 +1374,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
      */
     final IntBuffer table;
     final IntBuffer tableView;
-    
+
     T next = null; // next entry to return
 
     HashIterator() {
@@ -1387,7 +1387,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
         while (tableView.hasRemaining()) {
           IntBuffer entry = (IntBuffer) tableView.slice().limit(ENTRY_SIZE);
           tableView.position(tableView.position() + ENTRY_SIZE);
-          
+
           if (isPresent(entry)) {
             next = create(entry);
             break;
@@ -1456,21 +1456,21 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   private void updatePendingTables(int hash, long oldEncoding, IntBuffer newEntry) {
     if (hasUsedIterators) {
       pendingTableFrees.reap();
-      
+
       Iterator<PendingPage> it = pendingTableFrees.values();
       while (it.hasNext()) {
         PendingPage pending = it.next();
-        
+
         IntBuffer pendingTable = pending.tablePage.asIntBuffer();
         pendingTable.position(indexFor(spread(hash), pendingTable));
-        
+
         for (int i = 0; i < pending.reprobe; i++) {
           if (!pendingTable.hasRemaining()) {
             pendingTable.rewind();
           }
-  
+
           IntBuffer entry = (IntBuffer) pendingTable.slice().limit(ENTRY_SIZE);
-  
+
           if (isTerminating(entry)) {
             break;
           } else if (isPresent(entry) && (hash == entry.get(KEY_HASHCODE)) && (oldEncoding == readLong(entry, ENCODING))) {
@@ -1487,15 +1487,15 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   private void wipePendingTables() {
     if (hasUsedIterators) {
       pendingTableFrees.reap();
-      
+
       int[] zeros = new int[1024 >> 2];
-      
+
       Iterator<PendingPage> it = pendingTableFrees.values();
       while (it.hasNext()) {
         PendingPage pending = it.next();
-        
+
         IntBuffer pendingTable = pending.tablePage.asIntBuffer();
-        
+
         pendingTable.clear();
         while (pendingTable.hasRemaining()) {
           if (pendingTable.remaining() < zeros.length) {
@@ -1508,7 +1508,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
       }
     }
   }
-  
+
   class KeyIterator extends HashIterator<K> {
     KeyIterator() {
       super();
@@ -1656,7 +1656,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   }
 
   @SuppressWarnings("unchecked")
-  protected V getAtTableOffset(int offset) {
+  public V getAtTableOffset(int offset) {
     IntBuffer entry = ((IntBuffer) hashtable.duplicate().position(offset).limit(offset + ENTRY_SIZE)).slice();
 
     if (isPresent(entry)) {
@@ -1707,7 +1707,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
 
     if (hasUsedIterators) {
       pendingTableFrees.reap();
-      
+
       Iterator<PendingPage> it = pendingTableFrees.values();
       while (it.hasNext()) {
         PendingPage pending = it.next();
@@ -1777,7 +1777,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   protected void updated(IntBuffer entry) {
     //no-op
   }
-  
+
   protected void tableExpansionFailure(int start, int length) {
     StringBuilder sb = new StringBuilder("Failed to expand table.\n");
     sb.append("Current Table Size (slots) : ").append(getTableCapacity()).append('\n');
@@ -1829,7 +1829,7 @@ public class OffHeapHashMap<K, V> extends AbstractMap<K, V> implements MapIntern
   public long getOccupiedMemory() {
     return getDataOccupiedMemory() + (getUsedSlotCount() * ENTRY_SIZE * (Integer.SIZE / Byte.SIZE));
   }
-  
+
   @Override
   public long getVitalMemory() {
     return getDataVitalMemory() + (getTableCapacity() * ENTRY_SIZE * (Integer.SIZE / Byte.SIZE));
