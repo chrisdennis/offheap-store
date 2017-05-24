@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2015 Terracotta, Inc., a Software AG company.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,6 +27,7 @@ import java.util.List;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.terracotta.offheapstore.util.DuplicateClassLoader;
 
 //import java.io.File;
 //import java.lang.management.ManagementFactory;
@@ -39,13 +40,13 @@ import org.junit.Test;
 public class SerializablePortabilityClassUnloadingTest {
 
   private static final int PACKING_UNIT = 512 * 1024;
-  
+
   public volatile WeakReference<Class<?>> classRef;
   public volatile Serializable specialObject;
 
   @Before
   public void createSpecialObject() throws Exception {
-    ClassLoader duplicate = new URLClassLoader(((URLClassLoader) SpecialClass.class.getClassLoader()).getURLs(), null);
+    ClassLoader duplicate = new DuplicateClassLoader(SpecialClass.class.getClassLoader());
 
     @SuppressWarnings("unchecked")
     Class<? extends Serializable> special = (Class<? extends Serializable>) duplicate.loadClass(SpecialClass.class.getName());
@@ -84,7 +85,7 @@ public class SerializablePortabilityClassUnloadingTest {
       specialObject = null;
       Thread.currentThread().setContextClassLoader(null);
     }
-    
+
     for (int i = 0; i < 10; i++) {
       if (classRef.get() == null) {
         return;
@@ -94,7 +95,7 @@ public class SerializablePortabilityClassUnloadingTest {
     }
     throw new AssertionError();
   }
-  
+
   private static void packHeap() {
     List<SoftReference<?>> packing = new ArrayList<SoftReference<?>>();
     ReferenceQueue<byte[]> queue = new ReferenceQueue<byte[]>();
@@ -107,7 +108,7 @@ public class SerializablePortabilityClassUnloadingTest {
   public static class SpecialClass implements Serializable {
 
     private static final long serialVersionUID = 1L;
-    
+
     //empty impl
   }
 

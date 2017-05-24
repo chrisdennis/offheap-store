@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2015 Terracotta, Inc., a Software AG company.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,21 +24,18 @@ import org.junit.Test;
 
 import org.terracotta.offheapstore.storage.portability.Portability;
 import org.terracotta.offheapstore.storage.portability.SerializablePortability;
+import org.terracotta.offheapstore.util.DuplicateClassLoader;
 
 /**
  * @author teck
  */
 public class SerializablePortabilityClassLoaderTest {
 
-  private static ClassLoader newLoader() {
-    return new URLClassLoader(((URLClassLoader) SerializablePortabilityClassLoaderTest.class.getClassLoader()).getURLs(), null);
-  }
-
   @Test
   public void testThreadContextLoader() throws Exception {
+    ClassLoader loader = new DuplicateClassLoader(SerializablePortabilityClassLoaderTest.class.getClassLoader());
     Portability<Serializable> portability = new SerializablePortability();
 
-    ClassLoader loader = newLoader();
     ByteBuffer encoded = portability.encode((Serializable) loader.loadClass(Foo.class.getName()).newInstance());
 
     final ClassLoader original = Thread.currentThread().getContextClassLoader();
@@ -52,7 +49,7 @@ public class SerializablePortabilityClassLoaderTest {
 
   @Test
   public void testExplicitLoader() throws Exception {
-    ClassLoader loader = newLoader();
+    ClassLoader loader = new DuplicateClassLoader(SerializablePortabilityClassLoaderTest.class.getClassLoader());
     Portability<Serializable> portability = new SerializablePortability(loader);
 
     ByteBuffer encoded = portability.encode((Serializable) loader.loadClass(Foo.class.getName()).newInstance());
@@ -60,7 +57,7 @@ public class SerializablePortabilityClassLoaderTest {
     final ClassLoader original = Thread.currentThread().getContextClassLoader();
     try {
       // setting TCCL doesn't matter here, but set it to make sure it doesn't get used
-      Thread.currentThread().setContextClassLoader(newLoader());
+      Thread.currentThread().setContextClassLoader(new DuplicateClassLoader(SerializablePortabilityClassLoaderTest.class.getClassLoader()));
       Assert.assertSame(loader, portability.decode(encoded).getClass().getClassLoader());
     } finally {
       Thread.currentThread().setContextClassLoader(original);
