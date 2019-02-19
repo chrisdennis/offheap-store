@@ -39,7 +39,7 @@ public class OffHeapDiskMapClearingIT extends AbstractDiskTest {
 
   @Test
   public void testFrequentClearing() throws IOException {
-    CountingPageSource source = new CountingPageSource(new MappedPageSource(dataFile));
+    CountingPageSource source = new CountingPageSource(new MappedPageSource(dataFile.toPath()));
     Map<Integer, Integer> map = new OffHeapHashMap<>(source, new SplitStorageEngine<>(IntegerStorageEngine
       .instance(), IntegerStorageEngine.instance()));
 

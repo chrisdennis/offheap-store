@@ -17,6 +17,7 @@ package org.terracotta.offheapstore.storage.listener;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 
 import org.junit.After;
 import org.junit.Before;
@@ -25,6 +26,8 @@ import org.terracotta.offheapstore.disk.paging.MappedPageSource;
 import org.terracotta.offheapstore.disk.storage.FileBackedStorageEngine;
 import org.terracotta.offheapstore.storage.portability.StringPortability;
 import org.terracotta.offheapstore.util.MemoryUnit;
+
+import static java.nio.file.Files.createTempFile;
 
 public class FileBackedStorageEngineListenerIT extends AbstractListenerIT {
 
@@ -44,7 +47,7 @@ public class FileBackedStorageEngineListenerIT extends AbstractListenerIT {
   @Override
   protected ListenableStorageEngine<String, String> createStorageEngine() {
     try {
-      return new FileBackedStorageEngine<>(new MappedPageSource(dataFile), Long.MAX_VALUE, MemoryUnit.BYTES, StringPortability.INSTANCE, StringPortability.INSTANCE);
+      return new FileBackedStorageEngine<>(new MappedPageSource(dataFile.toPath()), Long.MAX_VALUE, MemoryUnit.BYTES, StringPortability.INSTANCE, StringPortability.INSTANCE);
     } catch (IOException e) {
       throw new AssertionError(e);
     }

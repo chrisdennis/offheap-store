@@ -57,7 +57,7 @@ public class FileBackedStorageEngineTest extends AbstractDiskTest {
 
   @Test
   public void testEmptyPayload() throws IOException {
-    MappedPageSource source = new MappedPageSource(dataFile);
+    MappedPageSource source = new MappedPageSource(dataFile.toPath());
     FileBackedStorageEngine<byte[], byte[]> engine = new FileBackedStorageEngine<>(source, Long.MAX_VALUE, MemoryUnit.BYTES, PersistentByteArrayPortability.INSTANCE, PersistentByteArrayPortability.INSTANCE);
     try {
       long p = engine.writeMapping(new byte[0], new byte[0], 0, 0);
@@ -80,7 +80,7 @@ public class FileBackedStorageEngineTest extends AbstractDiskTest {
 
   @Test
   public void testSmallPayloads() throws IOException {
-    MappedPageSource source = new MappedPageSource(dataFile);
+    MappedPageSource source = new MappedPageSource(dataFile.toPath());
     FileBackedStorageEngine<byte[], byte[]> engine = new FileBackedStorageEngine<>(source, Long.MAX_VALUE, MemoryUnit.BYTES, PersistentByteArrayPortability.INSTANCE, PersistentByteArrayPortability.INSTANCE);
     try {
       Random rndm = new Random();
@@ -113,7 +113,7 @@ public class FileBackedStorageEngineTest extends AbstractDiskTest {
 
   @Test
   public void testInterruptingReadThreads() throws IOException {
-    MappedPageSource source = new MappedPageSource(dataFile);
+    MappedPageSource source = new MappedPageSource(dataFile.toPath());
     FileBackedStorageEngine<byte[], byte[]> engine = new FileBackedStorageEngine<>(source, Long.MAX_VALUE, MemoryUnit.BYTES, PersistentByteArrayPortability.INSTANCE, PersistentByteArrayPortability.INSTANCE);
     try {
       long p = engine.writeMapping(new byte[0], new byte[32], 0, 0);
@@ -134,7 +134,7 @@ public class FileBackedStorageEngineTest extends AbstractDiskTest {
 
   @Test
   public void testConcurrentReads() throws IOException {
-    MappedPageSource source = new MappedPageSource(dataFile);
+    MappedPageSource source = new MappedPageSource(dataFile.toPath());
     FileBackedStorageEngine<byte[], byte[]> engine = new FileBackedStorageEngine<>(source, Long.MAX_VALUE, MemoryUnit.BYTES, PersistentByteArrayPortability.INSTANCE, PersistentByteArrayPortability.INSTANCE);
     try {
       int size = 32;
@@ -156,7 +156,7 @@ public class FileBackedStorageEngineTest extends AbstractDiskTest {
   @Test(expected = IOException.class)
   public void testConcurrentClose() throws Throwable {
     FileChannel spyChannel = spy(FileChannel.class);
-    MappedPageSource source = new MappedPageSource(dataFile) {
+    MappedPageSource source = new MappedPageSource(dataFile.toPath()) {
       @Override
       public FileChannel getReadableChannel() {
         return spyChannel;
@@ -191,7 +191,7 @@ public class FileBackedStorageEngineTest extends AbstractDiskTest {
   public void testConcurrentInterrupt() throws Throwable {
     AtomicReference<FileChannel> realChannelRef = new AtomicReference<>();
     FileChannel spyChannel = spy(FileChannel.class);
-    MappedPageSource source = new MappedPageSource(dataFile) {
+    MappedPageSource source = new MappedPageSource(dataFile.toPath()) {
       @Override
       public FileChannel getReadableChannel() {
         FileChannel channel = super.getReadableChannel();
@@ -227,7 +227,7 @@ public class FileBackedStorageEngineTest extends AbstractDiskTest {
   @Ignore("performance test")
   public void testHugeMap() throws IOException, InterruptedException, ExecutionException {
     System.err.println("Using file: " + dataFile.getAbsolutePath());
-    MappedPageSource source = new MappedPageSource(dataFile);
+    MappedPageSource source = new MappedPageSource(dataFile.toPath());
     final ConcurrentOffHeapHashMap<Integer, byte[]> map = new ConcurrentOffHeapHashMap<>(source, FileBackedStorageEngine
       .createFactory(source, Long.MAX_VALUE, MemoryUnit.BYTES, new PersistentSerializablePortability(), PersistentByteArrayPortability.INSTANCE), 4 * 1024 * 1024, 1);
     try {

@@ -178,12 +178,12 @@ public class FileBackedStorageEngine<K, V> extends PortabilityBasedStorageEngine
     try {
       writeExecutor.shutdownNow();
       if (writeExecutor.awaitTermination(60, TimeUnit.SECONDS)) {
-        LOGGER.debug("FileBackedStorageEngine for " + source.getFile().getName() + " terminated successfully");
+        LOGGER.debug("FileBackedStorageEngine for " + source.getFile().getFileName() + " terminated successfully");
       } else {
-        LOGGER.warn("FileBackedStorageEngine for " + source.getFile().getName() + " timed-out during termination");
+        LOGGER.warn("FileBackedStorageEngine for " + source.getFile().getFileName() + " timed-out during termination");
       }
     } catch (InterruptedException e) {
-      LOGGER.warn("FileBackedStorageEngine for " + source.getFile().getName() + " interrupted during termination");
+      LOGGER.warn("FileBackedStorageEngine for " + source.getFile().getFileName() + " interrupted during termination");
       Thread.currentThread().interrupt();
     } finally {
       try {
@@ -416,7 +416,7 @@ public class FileBackedStorageEngine<K, V> extends PortabilityBasedStorageEngine
           if (!readChannelReference.compareAndSet(current, newChannel)) {
             newChannel.close();
           } else {
-            LOGGER.info("Creating new read-channel for " + source.getFile().getName() + " as previous one was closed (likely due to interrupt)");
+            LOGGER.info("Creating new read-channel for " + source.getFile().getFileName() + " as previous one was closed (likely due to interrupt)");
           }
         }
       }

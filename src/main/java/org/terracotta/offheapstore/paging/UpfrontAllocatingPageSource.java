@@ -23,10 +23,12 @@ import org.terracotta.offheapstore.util.DebuggingUtils;
 import org.terracotta.offheapstore.util.MemoryUnit;
 import org.terracotta.offheapstore.util.PhysicalMemory;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -47,6 +49,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import static java.nio.file.Files.createTempFile;
+import static java.nio.file.Files.newBufferedWriter;
 import static org.terracotta.offheapstore.storage.allocator.PowerOfTwoAllocator.Packing.CEILING;
 import static org.terracotta.offheapstore.storage.allocator.PowerOfTwoAllocator.Packing.FLOOR;
 
@@ -494,11 +498,9 @@ public class UpfrontAllocatingPageSource implements PageSource {
 
       final long start = (LOGGER.isDebugEnabled() ? System.nanoTime() : 0);
 
-      final PrintStream allocatorLog = createAllocatorLog(toAllocate, maxChunk, minChunk);
-
       final Collection<ByteBuffer> buffers = new ArrayList<>((int) (toAllocate / maxChunk + 10)); // guess the number of buffers and add some padding just in case
 
-      try {
+      try (PrintWriter allocatorLog = createAllocatorLog(toAllocate, maxChunk, minChunk)) {
         if (allocatorLog != null) {
           allocatorLog.printf("timestamp,threadid,duration,size,physfree,totalswap,freeswap,committed%n");
         }
@@ -532,11 +534,6 @@ public class UpfrontAllocatingPageSource implements PageSource {
             }
           }
         }
-
-      } finally {
-        if (allocatorLog != null) {
-          allocatorLog.close();
-        }
       }
 
       if(LOGGER.isDebugEnabled()) {
@@ -547,7 +544,7 @@ public class UpfrontAllocatingPageSource implements PageSource {
       return Collections.unmodifiableCollection(buffers);
     }
 
-  private static Collection<ByteBuffer> bufferAllocation(BufferSource source, int toAllocate, int minChunk, boolean fixed, PrintStream allocatorLog, long start) {
+  private static Collection<ByteBuffer> bufferAllocation(BufferSource source, int toAllocate, int minChunk, boolean fixed, PrintWriter allocatorLog, long start) {
     long allocated = 0;
     long currentChunkSize = toAllocate;
 
@@ -612,15 +609,15 @@ public class UpfrontAllocatingPageSource implements PageSource {
     }
   }
 
-  private static PrintStream createAllocatorLog(long max, int maxChunk, int minChunk) {
+  private static PrintWriter createAllocatorLog(long max, int maxChunk, int minChunk) {
       String path = System.getProperty(ALLOCATION_LOG_LOCATION);
       if (path == null) {
         return null;
       } else {
-        PrintStream allocatorLogStream;
+        PrintWriter allocatorLogStream;
         try {
-          File allocatorLogFile = File.createTempFile("allocation", ".csv", new File(path));
-          allocatorLogStream = new PrintStream(allocatorLogFile, "US-ASCII");
+          Path allocatorLogFile = createTempFile(Paths.get(path), "allocation", ".csv");
+          allocatorLogStream = new PrintWriter(newBufferedWriter(allocatorLogFile, StandardCharsets.US_ASCII));
         } catch (IOException e) {
           LOGGER.warn("Exception creating allocation log", e);
           return null;

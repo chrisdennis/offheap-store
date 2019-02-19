@@ -15,14 +15,12 @@
  */
 package org.terracotta.offheapstore.disk.paging;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -37,6 +35,11 @@ import org.terracotta.offheapstore.paging.PageSource;
 import org.terracotta.offheapstore.util.DebuggingUtils;
 import org.terracotta.offheapstore.util.Retryer;
 
+import static java.nio.channels.FileChannel.open;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.READ;
+import static java.nio.file.StandardOpenOption.WRITE;
+
 /**
  *
  * @author Chris Dennis
@@ -50,33 +53,28 @@ public class MappedPageSource implements PageSource {
     return t;
   });
 
-  private final File file;
-  private final RandomAccessFile raf;
+  private final Path file;
   private final FileChannel channel;
   private final PowerOfTwoFileAllocator allocator;
 
   private final IdentityHashMap<MappedPage, Long> pages = new IdentityHashMap<>();
   private final Map<Long, AllocatedRegion> allocated = new HashMap<>();
 
-  public MappedPageSource(File file) throws IOException {
+  public MappedPageSource(Path file) throws IOException {
     this(file, true);
   }
 
-  public MappedPageSource(File file, long size) throws IOException {
+  public MappedPageSource(Path file, long size) throws IOException {
     this(file, true, size);
   }
 
-  public MappedPageSource(File file, boolean truncate) throws IOException {
+  public MappedPageSource(Path file, boolean truncate) throws IOException {
     this(file, truncate, Long.MAX_VALUE);
   }
 
-  public MappedPageSource(File file, boolean truncate, long size) throws IOException {
-    if (!file.createNewFile() && file.isDirectory()) {
-      throw new IOException("File already exists and is a directory");
-    }
+  public MappedPageSource(Path file, boolean truncate, long size) throws IOException {
     this.file = file;
-    this.raf = new RandomAccessFile(file, "rw");
-    this.channel = raf.getChannel();
+    this.channel = open(file, CREATE, READ, WRITE);
     if (truncate) {
       try {
         channel.truncate(0);
@@ -108,7 +106,7 @@ public class MappedPageSource implements PageSource {
         }
       }
     } catch (IOException e) {
-      LOGGER.warn("IOException while attempting to extend file " + file.getAbsolutePath(), e);
+      LOGGER.warn("IOException while attempting to extend file " + file.toAbsolutePath(), e);
     }
     return address;
   }
@@ -120,7 +118,7 @@ public class MappedPageSource implements PageSource {
       throw new AssertionError();
     } else {
       if (LOGGER.isDebugEnabled()) {
-        LOGGER.debug("Freeing a {}B region from {} &{}", DebuggingUtils.toBase2SuffixedString(r.size), file.getName(), r.address);
+        LOGGER.debug("Freeing a {}B region from {} &{}", DebuggingUtils.toBase2SuffixedString(r.size), file.getFileName(), r.address);
       }
       allocator.free(r.address, r.size);
     }
@@ -134,21 +132,21 @@ public class MappedPageSource implements PageSource {
 
   public FileChannel getReadableChannel() {
     try {
-      return new RandomAccessFile(file, "r").getChannel();
-    } catch (FileNotFoundException e) {
-      throw new AssertionError(e);
+      return open(file, READ);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 
   public FileChannel getWritableChannel() {
     try {
-      return new RandomAccessFile(file, "rw").getChannel();
-    } catch (FileNotFoundException e) {
-      throw new AssertionError(e);
+      return open(file, READ, WRITE);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 
-  public File getFile() {
+  public Path getFile() {
     return file;
   }
 
@@ -221,11 +219,7 @@ public class MappedPageSource implements PageSource {
   }
 
   public synchronized void close() throws IOException {
-    try {
-      channel.close();
-    } finally {
-      raf.close();
-    }
+    channel.close();
   }
 
   static class AllocatedRegion {

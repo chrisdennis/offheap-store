@@ -105,7 +105,7 @@ public abstract class OffHeapAndDiskStorageEngineDependentTest extends StorageEn
         try {
           File file = File.createTempFile("DiskTestMode.DISK", ".data");
           file.deleteOnExit();
-          return new MappedPageSource(file, unit.toBytes(size));
+          return new MappedPageSource(file.toPath(), unit.toBytes(size));
         } catch (IOException e) {
           throw new RuntimeException(e);
         }

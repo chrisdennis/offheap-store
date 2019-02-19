@@ -20,6 +20,7 @@ import org.terracotta.offheapstore.disk.paging.MappedPageSource;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -32,6 +33,11 @@ import org.terracotta.offheapstore.disk.AbstractDiskTest;
 import org.terracotta.offheapstore.storage.IntegerStorageEngine;
 import org.terracotta.offheapstore.storage.SplitStorageEngine;
 
+import static java.nio.file.Files.readAllBytes;
+import static java.nio.file.Files.size;
+import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertThat;
+
 /**
  *
  * @author Chris Dennis
@@ -40,7 +46,7 @@ public class MappedPageSourceIT extends AbstractDiskTest {
 
   @Test
   public void testMappedBufferIsConnected() throws IOException {
-    MappedPageSource source = new MappedPageSource(dataFile);
+    MappedPageSource source = new MappedPageSource(dataFile.toPath());
     try {
       MappedPage page = source.allocate(128, false, false, null);
       byte[] data = new byte[page.size()];
@@ -52,14 +58,9 @@ public class MappedPageSourceIT extends AbstractDiskTest {
       source.close();
     }
 
-    try (RandomAccessFile raf = new RandomAccessFile(source.getFile(), "r")) {
-      Assert.assertEquals(128, raf.length());
-      byte[] data = new byte[(int) raf.length()];
-      raf.readFully(data);
-
-      for (byte b : data) {
-        Assert.assertEquals((byte) 0xff, b);
-      }
+    assertThat(size(source.getFile()), is(128L));
+    for (byte b : readAllBytes(source.getFile())) {
+      Assert.assertEquals((byte) 0xff, b);
     }
   }
 
@@ -68,7 +69,7 @@ public class MappedPageSourceIT extends AbstractDiskTest {
     final int size = 1024 * 1024;
     final int count = 16;
 
-    MappedPageSource source = new MappedPageSource(dataFile);
+    MappedPageSource source = new MappedPageSource(dataFile.toPath());
     try {
       byte[] data = new byte[1024];
       Arrays.fill(data, (byte) 0xff);
@@ -89,16 +90,14 @@ public class MappedPageSourceIT extends AbstractDiskTest {
       source.close();
     }
 
-    try (RandomAccessFile raf = new RandomAccessFile(source.getFile(), "r")) {
-      Assert.assertEquals(size * count, raf.length());
-    }
+    assertThat(size(source.getFile()), is((long) size * count));
   }
 
   @Test
   public void testStraightToFileMap() throws IOException {
     final int size = 1024;
 
-    MappedPageSource source = new MappedPageSource(dataFile);
+    MappedPageSource source = new MappedPageSource(dataFile.toPath());
     try {
       OffHeapHashMap<Integer, Integer> map = new OffHeapHashMap<>(source, new SplitStorageEngine<>(new IntegerStorageEngine(), new IntegerStorageEngine()));
 

@@ -51,7 +51,7 @@ public class DiskLoadIT {
   public void testConcurrentMapLoading() throws IOException, InterruptedException, ExecutionException {
     File dataFile = new File("loadtest.data");
     dataFile.deleteOnExit();
-    final MappedPageSource source = new MappedPageSource(dataFile);
+    final MappedPageSource source = new MappedPageSource(dataFile.toPath());
     final ConcurrentOffHeapHashMap<Integer, byte[]> map = new ConcurrentOffHeapHashMap<>(source, (Factory<StorageEngine<Integer, byte[]>>) () -> {
       ThreadPoolExecutor e = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new LinkedBlockingQueue<>(1000), (r, executor) -> {
         boolean interrupted = false;
