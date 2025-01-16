@@ -1,4 +1,20 @@
 /*
+ * Copyright 2014-2023 Terracotta, Inc., a Software AG company.
+ * Copyright IBM Corp. 2024, 2025
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
@@ -8,9 +24,11 @@ import com.terracottatech.frs.RestartStore;
 import com.terracottatech.frs.Transaction;
 import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.object.ObjectManagerEntry;
-import com.terracottatech.offheapstore.storage.BinaryStorageEngine;
-import com.terracottatech.offheapstore.storage.StorageEngine;
-import com.terracottatech.offheapstore.storage.listener.RuntimeStorageEngineListener;
+import org.mockito.ArgumentMatchers;
+import org.mockito.hamcrest.MockitoHamcrest;
+import org.terracotta.offheapstore.storage.BinaryStorageEngine;
+import org.terracotta.offheapstore.storage.StorageEngine;
+import org.terracotta.offheapstore.storage.listener.RuntimeStorageEngineListener;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.locks.Lock;
@@ -28,6 +46,8 @@ import static org.hamcrest.core.IsNull.nullValue;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.*;
+import static org.mockito.hamcrest.MockitoHamcrest.argThat;
+import static org.mockito.hamcrest.MockitoHamcrest.longThat;
 
 /**
  *
@@ -89,7 +109,7 @@ public class RestartableStorageEngineTest {
     when(((BinaryStorageEngine) delegate).readBinaryValue(42L)).thenReturn(ByteBuffer.allocate(25));
     
     RestartStore restartability = mock(RestartStore.class);
-    when(restartability.beginTransaction(true)).thenThrow(TransactionException.class);
+    when(restartability.beginTransaction(true)).thenAnswer(invocation -> {throw new TransactionException();});
     
     RestartableStorageEngine engine = new RestartableStorageEngine("identifier", restartability, delegate, true);
     try {

@@ -1,8 +1,19 @@
 /*
- * All content copyright (c) 2010 Terracotta, Inc., except as may otherwise be noted in a separate copyright
- * notice. All rights reserved.
+ * Copyright 2014-2025 Terracotta, Inc., a Software AG company.
+ * Copyright IBM Corp. 2024, 2025
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package com.terracottatech.offheapstore.storage.restartable.partial;
 
 import com.terracottatech.frs.Disposable;
@@ -12,33 +23,36 @@ import com.terracottatech.frs.Tuple;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.object.ObjectManagerSegment;
 import com.terracottatech.frs.object.SimpleObjectManagerEntry;
-import com.terracottatech.offheapstore.paging.OffHeapStorageArea;
-import com.terracottatech.offheapstore.paging.PageSource;
-import com.terracottatech.offheapstore.storage.BinaryStorageEngine;
-import com.terracottatech.offheapstore.storage.PointerSize;
-import com.terracottatech.offheapstore.storage.StorageEngine;
-import com.terracottatech.offheapstore.storage.listener.AbstractListenableStorageEngine;
-import com.terracottatech.offheapstore.storage.portability.Portability;
-import com.terracottatech.offheapstore.util.Factory;
+import org.terracotta.offheapstore.paging.OffHeapStorageArea;
+import org.terracotta.offheapstore.paging.PageSource;
+import org.terracotta.offheapstore.storage.BinaryStorageEngine;
+import org.terracotta.offheapstore.storage.PointerSize;
+import org.terracotta.offheapstore.storage.StorageEngine;
+import org.terracotta.offheapstore.storage.listener.AbstractListenableStorageEngine;
+import org.terracotta.offheapstore.storage.portability.Portability;
+import org.terracotta.offheapstore.util.Factory;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.Lock;
 import java.util.function.LongConsumer;
 
-import static com.terracottatech.offheapstore.util.Validation.shouldValidate;
-import static com.terracottatech.offheapstore.util.Validation.validate;
+import static java.util.Collections.singleton;
+import static org.terracotta.offheapstore.util.Validation.shouldValidate;
+import static org.terracotta.offheapstore.util.Validation.validate;
 import static com.terracottatech.offheapstore.storage.restartable.RestartableStorageEngine.decodeKey;
 import static com.terracottatech.offheapstore.storage.restartable.RestartableStorageEngine.encodeKey;
 import static com.terracottatech.offheapstore.storage.restartable.RestartableStorageEngine.decodeValue;
 import static com.terracottatech.offheapstore.storage.restartable.RestartableStorageEngine.encodeValue;
 import static com.terracottatech.offheapstore.storage.restartable.RestartableStorageEngine.extractEncoding;
 import static com.terracottatech.offheapstore.storage.restartable.RestartableStorageEngine.extractMetadata;
-import static com.terracottatech.offheapstore.util.ByteBufferUtils.aggregate;
+import static org.terracotta.offheapstore.util.ByteBufferUtils.aggregate;
 
 public class RestartableMinimalStorageEngine<I, K, V> extends AbstractListenableStorageEngine<K, V> implements StorageEngine<K, V>, BinaryStorageEngine, ObjectManagerSegment<I, ByteBuffer, ByteBuffer> {
 
@@ -780,10 +794,14 @@ public class RestartableMinimalStorageEngine<I, K, V> extends AbstractListenable
   class MetadataOwner implements OffHeapStorageArea.Owner {
 
     @Override
-    public boolean evictAtAddress(long address, boolean shrink) {
+    public Collection<Long> evictAtAddress(long address, boolean shrink) {
       int hash = readKeyHash(address);
       int slot = owner.getSlotForHashAndEncoding(hash, address, ~0);
-      return owner.evict(slot, shrink);
+      if (owner.evict(slot, shrink)) {
+        return singleton(address);
+      } else {
+        return Collections.emptyList();
+      }
     }
 
     @Override

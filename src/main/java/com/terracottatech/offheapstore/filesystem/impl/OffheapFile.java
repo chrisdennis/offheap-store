@@ -1,3 +1,19 @@
+/*
+ * Copyright 2014-2023 Terracotta, Inc., a Software AG company.
+ * Copyright IBM Corp. 2024, 2025
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.terracottatech.offheapstore.filesystem.impl;
 
 import java.io.EOFException;
@@ -10,19 +26,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.terracottatech.offheapstore.concurrent.ConcurrentOffHeapHashMap;
+import org.terracotta.offheapstore.concurrent.ConcurrentOffHeapHashMap;
 import com.terracottatech.offheapstore.filesystem.File;
 import com.terracottatech.offheapstore.filesystem.SeekableInputStream;
 import com.terracottatech.offheapstore.filesystem.SeekableOutputStream;
-import com.terracottatech.offheapstore.paging.PageSource;
-import com.terracottatech.offheapstore.storage.IntegerStorageEngine;
-import com.terracottatech.offheapstore.storage.OffHeapBufferHalfStorageEngine;
-import com.terracottatech.offheapstore.storage.SplitStorageEngine;
-import com.terracottatech.offheapstore.storage.portability.Portability;
-import com.terracottatech.offheapstore.util.Factory;
-
-import static com.terracottatech.offheapstore.util.Validation.shouldValidate;
-import static com.terracottatech.offheapstore.util.Validation.validate;
+import org.terracotta.offheapstore.paging.PageSource;
+import org.terracotta.offheapstore.storage.IntegerStorageEngine;
+import org.terracotta.offheapstore.storage.OffHeapBufferHalfStorageEngine;
+import org.terracotta.offheapstore.storage.SplitStorageEngine;
+import org.terracotta.offheapstore.storage.portability.Portability;
+import org.terracotta.offheapstore.util.Factory;
+import static org.terracotta.offheapstore.util.Validation.shouldValidate;
+import static org.terracotta.offheapstore.util.Validation.validate;
 
 public class OffheapFile implements File {
 

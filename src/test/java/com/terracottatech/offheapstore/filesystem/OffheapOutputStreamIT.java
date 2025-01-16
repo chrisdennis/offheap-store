@@ -1,3 +1,19 @@
+/*
+ * Copyright 2014-2023 Terracotta, Inc., a Software AG company.
+ * Copyright IBM Corp. 2024, 2025
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.terracottatech.offheapstore.filesystem;
 
 import static org.junit.Assert.fail;
@@ -5,13 +21,13 @@ import static org.junit.Assert.fail;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
-import junit.framework.Assert;
-
 import org.junit.Test;
 
-import com.terracottatech.offheapstore.buffersource.HeapBufferSource;
+import org.terracotta.offheapstore.buffersource.HeapBufferSource;
 import com.terracottatech.offheapstore.filesystem.impl.OffheapFileSystem;
-import com.terracottatech.offheapstore.paging.UnlimitedPageSource;
+import org.terracotta.offheapstore.paging.UnlimitedPageSource;
+import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertThat;
 
 public class OffheapOutputStreamIT {
 
@@ -32,7 +48,7 @@ public class OffheapOutputStreamIT {
       SeekableOutputStream out = file.getOutputStream(); 
       out.write(100);
       out.flush();
-      Assert.assertEquals(1, file.length());
+      assertThat(file.length(), is(1L));
     } finally {
       fs.delete();
     }
@@ -46,7 +62,7 @@ public class OffheapOutputStreamIT {
       SeekableOutputStream out = file.getOutputStream(); 
       out.write(DATA_ARRAY);
       out.flush();
-      Assert.assertEquals(DATA_ARRAY.length, file.length());
+      assertThat(file.length(), is((long) DATA_ARRAY.length));
     } finally {
       fs.delete();
     }
@@ -61,9 +77,9 @@ public class OffheapOutputStreamIT {
       out.reset();
       out.write(100);
       out.flush();
-      Assert.assertEquals(1, file.length());
+      assertThat(file.length(), is(1L));
       file.truncate();
-      Assert.assertEquals(0, file.length());
+      assertThat(file.length(), is(0L));
     } finally {
       fs.delete();
     }
@@ -77,9 +93,9 @@ public class OffheapOutputStreamIT {
       SeekableOutputStream out = file.getOutputStream();
       out.write(DATA_ARRAY);
       out.flush();
-      Assert.assertEquals(DATA_ARRAY.length, file.length());
+      assertThat(file.length(), is((long) DATA_ARRAY.length));
       out.reset();
-      Assert.assertEquals(0, file.length());
+      assertThat(file.length(), is(0L));
     } finally {
       fs.delete();
     }
@@ -104,16 +120,16 @@ public class OffheapOutputStreamIT {
       out.reset();
       out.write(DATA_ARRAY);
       out.flush();
-      Assert.assertEquals(DATA_ARRAY.length, file.length());
+      assertThat(file.length(), is((long) DATA_ARRAY.length));
       // seek beyond the end of this file
       out.seek(2 * DATA_ARRAY.length);
       // seeks alone do not change a file's length
-      Assert.assertEquals(DATA_ARRAY.length, file.length());
+      assertThat(file.length(), is((long) DATA_ARRAY.length));
       // ...but writes do
       out.write((byte) 100);
       out.flush();
       // validate that file length has changed
-      Assert.assertEquals(2 * DATA_ARRAY.length + 1, file.length());
+      assertThat(file.length(), is((long) 2 * DATA_ARRAY.length + 1));
     } finally {
       fs.delete();
     }
@@ -127,7 +143,7 @@ public class OffheapOutputStreamIT {
       SeekableOutputStream out = file.getOutputStream();
       out.write(DATA_ARRAY);
       out.flush();
-      Assert.assertEquals(DATA_ARRAY.length, file.length());
+      assertThat(file.length(), is((long) DATA_ARRAY.length));
     } finally {
       fs.delete();
     }
